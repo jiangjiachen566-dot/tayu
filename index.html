@@ -424,16 +424,20 @@
         <input type="email" id="authEmail" placeholder="your@email.com" autocomplete="email">
       </div>
       <div class="auth-field">
-        <label>密码 <span style="color:var(--text-3);font-weight:400;">（至少 6 位，也是数据加密密钥）</span></label>
+        <label>密码 <span style="color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0;">（至少 6 位）</span></label>
         <input type="password" id="authPassword" placeholder="输入密码" autocomplete="current-password">
       </div>
-      <button class="auth-btn" id="authSubmit" onclick="authSubmit()">登录</button>
-      <button onclick="useLocalOnly()" style="width:100%;margin-top:10px;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--text-2);font-size:14px;cursor:pointer;">📱 暂不登录，仅本地使用</button>
-      <div class="auth-warn">
-        🔐 <b>零知识加密：</b>所有健康记录在本地用密码加密后再上传，云端只存密文。<b>密码丢失 = 数据永久丢失</b>，无法找回，请妥善保管。
+      <div class="auth-field" id="authPassword2Field" style="display:none;">
+        <label>确认密码</label>
+        <input type="password" id="authPassword2" placeholder="再次输入密码" autocomplete="new-password">
       </div>
+      <button class="auth-btn" id="authSubmit" onclick="authSubmit()">登录</button>
+      <div style="text-align:center;margin-top:12px;" id="forgotPwLine">
+        <span onclick="forgotPassword()" style="font-size:12px;color:var(--ink-3);cursor:pointer;">忘记密码？</span>
+      </div>
+      <button onclick="useLocalOnly()" style="width:100%;margin-top:14px;padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink-2);font-size:13px;cursor:pointer;letter-spacing:.5px;">📱 暂不登录，仅本地使用</button>
       <div class="auth-tip">
-        登录即表示同意服务条款与隐私政策
+        云同步使用 Supabase · 数据通过行级安全保护
       </div>
     </div>
   </div>
@@ -695,6 +699,13 @@ const supaAuth = {
       body: JSON.stringify({email, password})
     });
   },
+  async resetPassword(email){
+    // 发送密码重置邮件
+    return await supaApi('/auth/v1/recover', {
+      method:'POST',
+      body: JSON.stringify({email})
+    });
+  },
   async signOut(){
     if(!ACCESS_TOKEN) return;
     try {
@@ -732,42 +743,25 @@ const supaAuth = {
 };
 
 /* =========================================================
-   客户端加密（AES-GCM + PBKDF2）
-   密码派生密钥，全程不上传服务端
+   数据序列化（直接 JSON，无客户端加密）
+   注：v2 起去掉了客户端加密，依靠 Supabase RLS 行级安全保证用户隔离
+   兼容 v1 旧加密数据（base64 长字符串）：解密失败返回 null 即跳过
    ========================================================= */
-let CRYPTO_KEY = null; // CryptoKey 对象
-async function deriveKey(password, saltStr){
-  const enc = new TextEncoder();
-  const salt = enc.encode(saltStr || 'tayu_salt_v1_static');
-  const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-  return await crypto.subtle.deriveKey(
-    {name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'},
-    baseKey,
-    {name:'AES-GCM', length:256},
-    false,
-    ['encrypt','decrypt']
-  );
-}
+let CRYPTO_KEY = null; // 兼容保留，永远 null
+async function deriveKey(){ return null; }
+
 async function encryptObj(obj){
-  if(!CRYPTO_KEY) return JSON.stringify(obj); // local-only 模式不加密
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const data = new TextEncoder().encode(JSON.stringify(obj));
-  const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, CRYPTO_KEY, data);
-  const combined = new Uint8Array(iv.length + cipher.byteLength);
-  combined.set(iv); combined.set(new Uint8Array(cipher), iv.length);
-  return btoa(String.fromCharCode(...combined));
+  return JSON.stringify(obj);
 }
-async function decryptStr(b64){
-  if(!CRYPTO_KEY){
-    try{ return JSON.parse(b64); }catch(e){ return null; }
+async function decryptStr(s){
+  if(!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch(e){
+    // 兼容 v1 旧加密数据 — 没有密钥解不了，返回 null 让上层跳过该条
+    console.warn('[tayu] 跳过无法解析的旧加密数据');
+    return null;
   }
-  try{
-    const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
-    const iv = bytes.slice(0,12);
-    const cipher = bytes.slice(12);
-    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, CRYPTO_KEY, cipher);
-    return JSON.parse(new TextDecoder().decode(plain));
-  }catch(e){ console.warn('解密失败：', e); return null; }
 }
 
 /* =========================================================
@@ -779,12 +773,33 @@ function switchAuthTab(mode){
   document.getElementById('tabSignin').classList.toggle('on', mode==='signin');
   document.getElementById('tabSignup').classList.toggle('on', mode==='signup');
   document.getElementById('authSubmit').textContent = mode==='signin' ? '登录' : '注册并开始使用';
+  // 二次密码字段
+  const f2 = document.getElementById('authPassword2Field');
+  if(f2) f2.style.display = mode==='signup' ? 'block' : 'none';
+  // 忘记密码链接仅登录态显示
+  const fp = document.getElementById('forgotPwLine');
+  if(fp) fp.style.display = mode==='signin' ? 'block' : 'none';
+  // autocomplete 调整
+  const pw = document.getElementById('authPassword');
+  if(pw) pw.autocomplete = mode==='signup' ? 'new-password' : 'current-password';
 }
 async function authSubmit(){
   const email = document.getElementById('authEmail').value.trim();
   const pw = document.getElementById('authPassword').value;
   if(!email || !pw){ toast('请填写邮箱和密码'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('邮箱格式不正确'); return; }
   if(pw.length<6){ toast('密码至少 6 位'); return; }
+  // 注册时检查二次密码
+  if(authMode==='signup'){
+    const pw2 = document.getElementById('authPassword2').value;
+    if(!pw2){ toast('请确认密码'); document.getElementById('authPassword2').focus(); return; }
+    if(pw !== pw2){
+      toast('❌ 两次密码不一致');
+      document.getElementById('authPassword2').value = '';
+      document.getElementById('authPassword2').focus();
+      return;
+    }
+  }
   const btn = document.getElementById('authSubmit');
   btn.disabled = true; btn.textContent = '处理中...';
   console.log('[tayu] auth start, mode=', authMode, 'email=', email);
@@ -803,14 +818,9 @@ async function authSubmit(){
       res = await supaAuth.signIn(email, pw);
       console.log('[tayu] signIn result:', res);
     }
-    // 保存会话
+    // 保存会话（不再需要派生密钥，因为去掉了客户端加密）
     supaAuth.saveSession(res);
-    // 派生加密密钥
-    CRYPTO_KEY = await deriveKey(pw, CURRENT_USER.id);
-    // 缓存密码到 sessionStorage（仅本会话内有效，关闭浏览器自动失效，刷新保留）
-    // 这是隐私权衡：sessionStorage 可被同源 JS 读取，但本 App 没引入第三方脚本，可接受
-    try { sessionStorage.setItem('tayu_pw', btoa(unescape(encodeURIComponent(pw)))); } catch(e){}
-    localStorage.setItem('tayu_logged_before', '1'); // 标记本设备登录过
+    localStorage.setItem('tayu_logged_before', '1');
     // 加载云端数据
     await loadFromCloud();
     enterApp();
@@ -862,6 +872,30 @@ async function authSubmit(){
     alert('登录/注册失败：\n\n' + (e.message||JSON.stringify(e)) + (e.body?'\n\n详情：'+JSON.stringify(e.body):''));
   }
 }
+async function forgotPassword(){
+  const cur = document.getElementById('authEmail').value.trim();
+  const email = prompt('找回密码\n\n输入注册时使用的邮箱，我们会发送重置链接：', cur);
+  if(!email) return;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('邮箱格式不正确'); return; }
+  try {
+    await supaAuth.resetPassword(email);
+    alert('✉️ 重置邮件已发送\n\n请去 ' + email + ' 邮箱点击链接重置密码。\n\n注意：如果没收到，检查垃圾邮件，或确认邮箱地址正确。');
+  } catch(e){
+    console.error('[tayu] reset password:', e);
+    alert('发送失败：' + (e.message || '未知错误') + '\n\n请稍后重试。');
+  }
+}
+async function forgotPasswordFromProfile(){
+  if(!CURRENT_USER){ toast('请先登录'); return; }
+  if(!confirm('发送密码重置邮件到 ' + CURRENT_USER.email + ' ?')) return;
+  try {
+    await supaAuth.resetPassword(CURRENT_USER.email);
+    alert('✉️ 重置邮件已发送到 ' + CURRENT_USER.email);
+  } catch(e){
+    alert('发送失败：' + (e.message || '未知错误'));
+  }
+}
+
 function useLocalOnly(){
   LOCAL_ONLY_MODE = true;
   CRYPTO_KEY = null;
@@ -2233,6 +2267,7 @@ function renderProfilePage(){
   items.push({emoji:'✏️', label:'修改昵称', action:'promptUsername()'});
   if(CURRENT_USER){
     items.push({emoji:'🔄', label:'重新同步云端', action:'syncFromCloud()'});
+    items.push({emoji:'🔑', label:'重置登录密码', action:'forgotPasswordFromProfile()'});
     items.push({emoji:'🚪', label:'退出登录', action:'logoutUser()', danger:true});
   } else {
     items.push({emoji:'☁️', label:'登录以同步云端', action:'document.getElementById(\'authPage\').classList.remove(\'hide\');'});
@@ -2990,36 +3025,18 @@ async function bootstrap(){
 
   const session = supaAuth.loadSession();
   if(session){
-    // 尝试用 sessionStorage 缓存的密码自动解锁
-    let cachedPw = null;
-    try { cachedPw = sessionStorage.getItem('tayu_pw'); } catch(e){}
-    if(cachedPw){
-      try {
-        const pw = decodeURIComponent(escape(atob(cachedPw)));
-        CRYPTO_KEY = await deriveKey(pw, session.user.id);
-        await loadFromCloud();
-        enterApp();
-        console.log('[tayu] 自动恢复会话成功');
-        return;
-      } catch(e){
-        console.warn('[tayu] 自动解锁失败：', e);
-        sessionStorage.removeItem('tayu_pw');
-      }
-    }
-    // 已有会话但没缓存密码 → 让用户输密码
-    document.getElementById('authPage').classList.remove('hide');
-    document.getElementById('authEmail').value = session.user.email;
-    document.getElementById('authEmail').readOnly = true;
-    switchAuthTab('signin');
-    setTimeout(()=>document.getElementById('authPassword').focus(), 200);
-    toast('请输入密码以解密本地数据');
+    // 已登录会话 → 直接拉云端数据 + 进 App，无需再输密码
+    try {
+      await loadFromCloud();
+    } catch(e){ console.warn('[tayu] cloud load on boot:', e); }
+    enterApp();
+    console.log('[tayu] 自动恢复会话');
   } else {
     document.getElementById('authPage').classList.remove('hide');
     // 智能默认：从未登录过的设备 → 默认注册；登录过的 → 默认登录
     const hasLoggedBefore = localStorage.getItem('tayu_logged_before');
-    if(!hasLoggedBefore){
-      switchAuthTab('signup');
-    }
+    if(!hasLoggedBefore) switchAuthTab('signup');
+    else switchAuthTab('signin');
   }
   // 后台预检 Supabase 可达性
   checkSupabaseReachable();
