@@ -1101,9 +1101,9 @@ function fmtCN(dStr){
 function recordSummary(r){
   const d = r.data || {};
   switch(r.type){
-    case 'jerk':  return `时长 ${d.duration||'-'} 分钟 · ${d.mood||''}`;
+    case 'jerk':  return d.mood==='未发生' ? '✨ 今日未发生' : `时长 ${d.duration||0} 分钟 · ${d.mood||''}`;
     case 'sex':   return `时长 ${d.duration||'-'} 分钟 · 评分 ${d.quality||'-'}/5${d.protected?' · 已防护':''}`;
-    case 'night': return `起夜 ${d.count||1} 次 · 入睡${d.fallback||'-'}`;
+    case 'night': return (d.count||0)===0 ? '✨ 一夜安睡，未起夜' : `起夜 ${d.count} 次 · 入睡${d.fallback||'-'}`;
     case 'pee':{
       const sym = (d.symptoms||[]).length;
       const risk = peeRisk(d);
@@ -1116,10 +1116,11 @@ function recordSummary(r){
       return `${d.bedtime||'-'} → ${d.waketime||'-'} · ${h} 小时 · ${q.label}`;
     }
     case 'mood':  return `${d.mood||''} · 压力 ${d.stress||'-'}/5`;
-    case 'smoke': return `${d.brand||'-'} ${d.count||1} 支 · ${d.scene||''}${d.mood==='咳嗽不适'?' · ⚠️':''}`;
+    case 'smoke': return (d.count||0)===0 ? '🌿 今日 0 支，戒烟坚持中' : `${d.brand||'-'} ${d.count} 支 · ${d.scene||''}${d.mood==='咳嗽不适'?' · ⚠️':''}`;
     case 'drink':{
       const drunkLabels = ['清醒','微醺','有点醉','醉了','大醉','断片'];
-      return `${d.kind||'-'} ${d.amount||1} ${d.unit||'杯'} · ${drunkLabels[d.drunk||0]||''}${(d.drunk||0)>=3?' 🚨':''}`;
+      if((d.amount||0)===0) return '💧 今日未饮酒';
+      return `${d.kind||'-'} ${d.amount} ${d.unit||'杯'} · ${drunkLabels[d.drunk||0]||''}${(d.drunk||0)>=3?' 🚨':''}`;
     }
     default: return '';
   }
@@ -1216,9 +1217,9 @@ function renderForm(){
 
   switch(curType){
     case 'jerk':
-      formState.data = {duration:8, mood:'😊 满意'};
-      body += rowNumber('时长(分钟)','duration',8);
-      body += rowChip('感受','mood',['😄 很爽','😊 满意','😐 一般','😶 普通'],'😊 满意');
+      formState.data = {duration:0, mood:'未发生'};
+      body += rowChip('时长(分钟)','duration',[0,3,5,8,10,15,20,30],0);
+      body += rowChip('感受','mood',['未发生','😄 很爽','😊 满意','😐 一般','😶 普通','😵 疲惫'],'未发生');
       break;
     case 'sex':
       formState.data = {duration:20, quality:4, protected:true};
@@ -1227,9 +1228,9 @@ function renderForm(){
       body += rowChip('安全防护','protected',[{k:true,v:'是'},{k:false,v:'否'}],true);
       break;
     case 'night':
-      formState.data = {count:1, fallback:'容易'};
-      body += rowNumber('起夜次数','count',1);
-      body += rowChip('再次入睡','fallback',['容易','一般','困难'],'容易');
+      formState.data = {count:0, fallback:'容易'};
+      body += rowChip('起夜次数','count',[0,1,2,3,4,5],0);
+      body += rowChip('再次入睡','fallback',['未起夜','容易','一般','困难'],'未起夜');
       break;
     case 'pee':
       formState.data = {dayCount:6, color:'淡黄', stream:'正常', symptoms:[], urgency:1, pain:0};
@@ -1259,19 +1260,19 @@ function renderForm(){
       body += rowChip('压力(0-5)','stress',[0,1,2,3,4,5],2);
       break;
     case 'smoke':
-      formState.data = {brand:'国产烟', count:1, scene:'饭后', mood:'解压'};
-      body += rowChip('烟种','brand',['国产烟','进口烟','电子烟','卷烟','雪茄','其他'],'国产烟');
-      body += rowNumber('支数','count',1);
-      body += rowChip('场景','scene',['早起','饭后','工作压力','社交应酬','喝酒时','睡前','无聊'],'饭后');
-      body += rowChip('感受','mood',['解压','享受','无感','后悔','咳嗽不适'],'解压');
+      formState.data = {count:0, brand:'未抽', scene:'戒烟中', mood:'坚持'};
+      body += rowChip('今日支数','count',[0,1,3,5,10,15,20],0);
+      body += rowChip('烟种','brand',['未抽','国产烟','进口烟','电子烟','卷烟','雪茄'],'未抽');
+      body += rowChip('场景','scene',['戒烟中','早起','饭后','工作压力','社交应酬','喝酒时','睡前','无聊'],'戒烟中');
+      body += rowChip('感受','mood',['坚持','解压','享受','无感','后悔','咳嗽不适'],'坚持');
       break;
     case 'drink':
-      formState.data = {kind:'啤酒', amount:1, unit:'瓶', drunk:1, scene:'独酌'};
-      body += rowChip('酒种','kind',['啤酒','白酒','红酒','洋酒','清酒','鸡尾酒','其他'],'啤酒');
-      body += rowNumber('饮用量','amount',1,0.5);
-      body += rowChip('单位','unit',['瓶','杯','两','听','打'],'瓶');
-      body += rowChip('醉度(0-5)','drunk',[{k:0,v:'清醒'},{k:1,v:'微醺'},{k:2,v:'有点醉'},{k:3,v:'醉了'},{k:4,v:'大醉'},{k:5,v:'断片'}],1);
-      body += rowChip('场景','scene',['独酌','朋友聚会','商务应酬','约会','家庭聚餐','酒吧','庆祝'],'独酌');
+      formState.data = {kind:'未喝', amount:0, unit:'杯', drunk:0, scene:'戒酒中'};
+      body += rowChip('酒种','kind',['未喝','啤酒','白酒','红酒','洋酒','清酒','鸡尾酒'],'未喝');
+      body += rowNumber('饮用量','amount',0,0.5);
+      body += rowChip('单位','unit',['杯','瓶','两','听','打'],'杯');
+      body += rowChip('醉度','drunk',[{k:0,v:'清醒'},{k:1,v:'微醺'},{k:2,v:'有点醉'},{k:3,v:'醉了'},{k:4,v:'大醉'},{k:5,v:'断片'}],0);
+      body += rowChip('场景','scene',['戒酒中','独酌','朋友聚会','商务应酬','约会','家庭聚餐','酒吧','庆祝'],'戒酒中');
       break;
   }
   body += `<div class="form-row" style="align-items:flex-start;"><span class="k">备注</span><textarea placeholder="可选，记录今天的感受…" oninput="formState.note=this.value"></textarea></div>`;
@@ -1851,192 +1852,180 @@ const TIER_CONF = {
 };
 const TIERS = ['bronze','silver','gold','diamond'];
 
-// 勋章定义：每个 tiers 数组 = [青铜阈值, 白银阈值, 黄金阈值, 钻石阈值]
+// 勋章定义 v4 — 全部基于"记录行为"，不奖励缺席
+// 设计原则：
+// 1. 每个勋章必须靠"用户主动打卡记录"才能解锁
+// 2. 互斥分支 = 同一维度下"记录类型 A 的次数" vs "记录类型 B 的次数"
+// 3. "记录今天没抽烟/没起夜/没解压"也算有效记录（健康观察行为）
 const MEDALS = [
-  // ============ 通用勋章 (10) ============
-  // 1. 打卡坚持
-  {id:'streak', emoji:'🔥', name:'打卡坚持', cat:'general',
+  // ============ 通用勋章 (10) — 全员适用，重在打卡持续性 ============
+  // 1. 连续打卡（核心荣誉）
+  {id:'streak', emoji:'🔥', name:'打卡之王', cat:'general',
    tiers:[3,7,30,100], unit:'天连续打卡',
    getProgress:(r,h)=>h.streak,
-   desc:'连续记录的天数'},
-  // 2. 累计记录
+   desc:'连续每天有记录的天数（最高荣誉）'},
+  // 2. 累计记录条数
   {id:'records', emoji:'📝', name:'记录达人', cat:'general',
    tiers:[10,50,200,1000], unit:'条记录',
    getProgress:(r,h)=>r.length,
    desc:'累计的健康记录条数'},
-  // 3. 全能体验
+  // 3. 累计打卡天数（不要求连续）
+  {id:'log_days', emoji:'📅', name:'坚持有我', cat:'general',
+   tiers:[7,30,100,365], unit:'天有记录',
+   getProgress:(r,h)=>new Set(r.map(x=>x.date)).size,
+   desc:'累计有记录的天数（不要求连续）'},
+  // 4. 全能体验
   {id:'all_types', emoji:'🎨', name:'全能体验', cat:'general',
    tiers:[3,5,7,9], unit:'种功能',
    getProgress:(r,h)=>new Set(r.map(x=>x.type)).size,
-   desc:'体验过多少种打卡类型'},
-  // 4. 运动累计
+   desc:'体验过多少种打卡类型（共 9 种）'},
+  // 5. 运动累计
   {id:'sport_total', emoji:'🏃', name:'运动健将', cat:'general',
-   tiers:[5,20,60,200], unit:'次运动',
+   tiers:[3,15,50,200], unit:'次运动记录',
    getProgress:(r,h)=>r.filter(x=>x.type==='sport').length,
-   desc:'累计运动次数'},
-  // 5. 睡眠记录
+   desc:'累计运动打卡次数'},
+  // 6. 睡眠记录
   {id:'sleep_total', emoji:'😴', name:'睡眠观察家', cat:'general',
    tiers:[5,20,60,200], unit:'次睡眠记录',
    getProgress:(r,h)=>r.filter(x=>x.type==='sleep').length,
    desc:'累计记录睡眠数据'},
-  // 6. 高质量睡眠
+  // 7. 优质睡眠（连续 ≥7h）
   {id:'good_sleep_streak', emoji:'🌙', name:'优质梦乡', cat:'general',
    tiers:[3,7,21,60], unit:'天连续 ≥7h 睡眠',
    getProgress:(r,h)=>h.goodSleepStreak,
    desc:'连续多少天睡满 7 小时'},
-  // 7. 阳光心态
-  {id:'happy_mood', emoji:'😄', name:'阳光心态', cat:'general',
-   tiers:[3,10,30,100], unit:'次开心记录',
-   getProgress:(r,h)=>r.filter(x=>x.type==='mood' && (x.data.mood||'').includes('开心')).length,
-   desc:'记录过的开心心情次数'},
-  // 8. 排尿正常
-  {id:'pee_normal', emoji:'💧', name:'泌尿健康', cat:'general',
-   tiers:[3,10,30,100], unit:'次正常评估',
-   getProgress:(r,h)=>r.filter(x=>x.type==='pee' && peeRisk(x.data).level==='正常').length,
-   desc:'排尿评估为正常的次数'},
-  // 9. 自我观察（单日多类型）
+  // 8. 心情记录
+  {id:'mood_total', emoji:'🧠', name:'内观大师', cat:'general',
+   tiers:[5,20,60,200], unit:'次心情记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='mood').length,
+   desc:'累计记录心情的次数'},
+  // 9. 排尿监测
+  {id:'pee_total', emoji:'💧', name:'健康观察员', cat:'general',
+   tiers:[3,15,50,200], unit:'次排尿记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='pee').length,
+   desc:'累计排尿监测次数（关注泌尿健康）'},
+  // 10. 单日多类型（自我关怀深度）
   {id:'rich_day', emoji:'🎪', name:'丰富一天', cat:'general',
-   tiers:[3,5,7,9], unit:'种当日同时记录',
+   tiers:[3,5,7,9], unit:'种当日记录',
    getProgress:(r,h)=>h.maxDayTypes,
    desc:'单日最多记录的类型数'},
-  // 10. 自律者（无起夜）
-  {id:'no_night_streak', emoji:'🌟', name:'安睡之心', cat:'general',
-   tiers:[3,7,21,60], unit:'天连续无起夜',
-   getProgress:(r,h)=>h.noNightStreak,
-   desc:'连续无起夜的天数'},
 
-  // ============ 分支勋章 (8 组，每人按生活方式拿到一套) ============
+  // ============ 分支勋章 (8 组) — 全部基于"记录行为"互斥 ============
 
-  // === 分支1：解压频率 ===
-  // A. 频繁解压
-  {id:'jerk_total', emoji:'✋', name:'解压达人', cat:'branch', branch:'jerk_freq',
-   tiers:[5,20,60,200], unit:'次解压',
-   getProgress:(r,h)=>r.filter(x=>x.type==='jerk').length,
-   desc:'累计解压次数（适度即可）'},
-  // B. 禁欲修行
-  {id:'no_jerk_streak', emoji:'🧘', name:'禅心居士', cat:'branch', branch:'jerk_freq',
-   tiers:[3,7,30,90], unit:'天连续不解压',
-   getProgress:(r,h)=>h.noJerkStreak,
-   desc:'连续不释放的天数'},
+  // === 分支1：解压记录 ===
+  // A. 打卡有解压
+  {id:'jerk_logged', emoji:'✋', name:'坦诚记录者', cat:'branch', branch:'jerk_log',
+   tiers:[3,15,50,200], unit:'次解压记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='jerk' && (x.data.duration||0)>0).length,
+   desc:'累计记录"有解压"的次数'},
+  // B. 打卡未发生
+  {id:'jerk_zero', emoji:'🧘', name:'禅心打卡员', cat:'branch', branch:'jerk_log',
+   tiers:[3,10,30,100], unit:'次"未发生"记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='jerk' && (x.data.duration||0)===0).length,
+   desc:'累计主动打卡"今日未发生"的次数'},
 
   // === 分支2：亲密关系 ===
-  // A. 恩爱情侣
-  {id:'sex_total', emoji:'💕', name:'恩爱小情侣', cat:'branch', branch:'relationship',
-   tiers:[3,15,50,200], unit:'次亲密生活',
+  {id:'sex_logged', emoji:'💕', name:'幸福记录员', cat:'branch', branch:'sex_log',
+   tiers:[3,15,50,200], unit:'次亲密记录',
    getProgress:(r,h)=>r.filter(x=>x.type==='sex').length,
-   desc:'累计亲密生活次数'},
-  // B. 单身贵族
-  {id:'single_streak', emoji:'🦋', name:'单身贵族', cat:'branch', branch:'relationship',
-   tiers:[14,30,90,180], unit:'天连续无亲密',
-   getProgress:(r,h)=>h.noSexStreak,
-   desc:'连续无亲密生活的天数（单身/异地都算）'},
+   desc:'累计亲密生活记录次数'},
+  {id:'sex_quality', emoji:'💝', name:'品质生活', cat:'branch', branch:'sex_log',
+   tiers:[3,10,30,100], unit:'次高质量(≥4)',
+   getProgress:(r,h)=>r.filter(x=>x.type==='sex' && (x.data.quality||0)>=4).length,
+   desc:'累计高质量(评分≥4)亲密生活'},
 
-  // === 分支3：抽烟 ===
-  // A. 烟枪
-  {id:'smoke_total', emoji:'🚬', name:'吞云吐雾', cat:'branch', branch:'smoking',
-   tiers:[20,100,500,2000], unit:'支累计抽烟',
-   getProgress:(r,h)=>h.smokeTotal,
-   desc:'累计抽烟支数（请关注健康）'},
-  // B. 戒烟者
-  {id:'no_smoke_streak', emoji:'🌿', name:'戒烟标兵', cat:'branch', branch:'smoking',
-   tiers:[7,30,90,365], unit:'天连续无烟',
-   getProgress:(r,h)=>h.noSmokeStreak,
-   desc:'连续不抽烟的天数'},
+  // === 分支3：抽烟 — 全部基于打卡 ===
+  {id:'smoke_zero', emoji:'🌿', name:'戒烟挑战者', cat:'branch', branch:'smoke_log',
+   tiers:[3,10,30,100], unit:'次"今日0支"打卡',
+   getProgress:(r,h)=>r.filter(x=>x.type==='smoke' && (x.data.count||0)===0).length,
+   desc:'主动打卡"今天 0 支"的次数（戒烟意志的体现）'},
+  {id:'smoke_logged', emoji:'🚬', name:'坦白烟客', cat:'branch', branch:'smoke_log',
+   tiers:[3,15,50,200], unit:'次抽烟记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='smoke' && (x.data.count||0)>0).length,
+   desc:'累计记录抽烟数据次数（坦诚面对）'},
 
-  // === 分支4：饮酒 ===
-  // A. 酒桌豪侠
-  {id:'drink_total', emoji:'🍻', name:'酒桌灵魂', cat:'branch', branch:'drinking',
-   tiers:[3,15,50,200], unit:'次饮酒',
-   getProgress:(r,h)=>r.filter(x=>x.type==='drink').length,
-   desc:'累计饮酒次数'},
-  // B. 戒酒者
-  {id:'no_drink_streak', emoji:'🍵', name:'清醒人生', cat:'branch', branch:'drinking',
-   tiers:[7,30,90,365], unit:'天连续无酒',
-   getProgress:(r,h)=>h.noDrinkStreak,
-   desc:'连续不喝酒的天数'},
+  // === 分支4：饮酒 — 全部基于打卡 ===
+  {id:'drink_zero', emoji:'🍵', name:'清醒打卡', cat:'branch', branch:'drink_log',
+   tiers:[3,10,30,100], unit:'次"今日未饮酒"',
+   getProgress:(r,h)=>r.filter(x=>x.type==='drink' && (x.data.amount||0)===0).length,
+   desc:'主动打卡"今天没喝酒"的次数'},
+  {id:'drink_logged', emoji:'🍻', name:'酒桌记录员', cat:'branch', branch:'drink_log',
+   tiers:[3,15,50,200], unit:'次饮酒记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='drink' && (x.data.amount||0)>0).length,
+   desc:'累计记录饮酒数据'},
 
-  // === 分支5：作息倾向 ===
-  // A. 早起鸟
+  // === 分支5：起夜 — 全部基于打卡 ===
+  {id:'night_zero', emoji:'🌟', name:'安睡打卡员', cat:'branch', branch:'night_log',
+   tiers:[3,10,30,100], unit:'次"未起夜"打卡',
+   getProgress:(r,h)=>r.filter(x=>x.type==='night' && (x.data.count||0)===0).length,
+   desc:'主动打卡"昨晚一觉到天亮"的次数'},
+  {id:'night_logged', emoji:'🚽', name:'起夜观察员', cat:'branch', branch:'night_log',
+   tiers:[3,15,50,200], unit:'次起夜记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='night' && (x.data.count||0)>0).length,
+   desc:'累计记录起夜数据次数（关注前列腺）'},
+
+  // === 分支6：作息倾向 ===
   {id:'morning_bird', emoji:'🐦', name:'早起鸟儿', cat:'branch', branch:'sleep_type',
    tiers:[3,10,30,100], unit:'次早起 (≤7点)',
    getProgress:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.waketime && x.data.waketime<='07:00').length,
    desc:'起床早于 7 点的次数'},
-  // B. 夜猫子
   {id:'night_owl', emoji:'🦉', name:'熬夜冠军', cat:'branch', branch:'sleep_type',
    tiers:[3,10,30,100], unit:'次熬夜 (≥1点睡)',
    getProgress:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.bedtime && x.data.bedtime>='01:00' && x.data.bedtime<='05:00').length,
    desc:'凌晨入睡的次数'},
 
-  // === 分支6：运动强度 ===
-  // A. 高频运动
-  {id:'sport_freq', emoji:'⚡️', name:'运动狂人', cat:'branch', branch:'sport_style',
-   tiers:[3,7,14,30], unit:'天连续运动',
-   getProgress:(r,h)=>h.sportStreak,
-   desc:'连续每日都运动的天数'},
-  // B. 佛系运动
-  {id:'sport_chill', emoji:'🌿', name:'松弛大师', cat:'branch', branch:'sport_style',
-   tiers:[7,30,90,180], unit:'天连续不运动',
-   getProgress:(r,h)=>h.noSportStreak,
-   desc:'连续不运动的天数（享受躺平也是一种生活）'},
-
   // === 分支7：心理倾向 ===
-  // A. 情绪稳定
-  {id:'calm_mood', emoji:'🧘‍♂️', name:'情绪稳定', cat:'branch', branch:'mind_type',
-   tiers:[3,10,30,100], unit:'次平静记录',
-   getProgress:(r,h)=>r.filter(x=>x.type==='mood' && (x.data.mood||'').includes('平静')).length,
-   desc:'记录平静心情的次数'},
-  // B. 情绪丰富
-  {id:'rich_mood', emoji:'🎭', name:'情绪丰富', cat:'branch', branch:'mind_type',
-   tiers:[3,10,30,100], unit:'种情绪类型',
+  {id:'happy_mood', emoji:'😄', name:'阳光心态', cat:'branch', branch:'mood_log',
+   tiers:[3,10,30,100], unit:'次开心记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='mood' && (x.data.mood||'').includes('开心')).length,
+   desc:'记录"开心"心情的次数'},
+  {id:'rich_mood', emoji:'🎭', name:'情绪百态', cat:'branch', branch:'mood_log',
+   tiers:[2,3,4,5], unit:'种情绪类型',
    getProgress:(r,h)=>{
      const moods = new Set(r.filter(x=>x.type==='mood').map(x=>x.data.mood||''));
      return moods.size;
    },
-   desc:'体验过多少种心情类型'},
+   desc:'体验过多少种心情类型（共 5 种）'},
 
   // === 分支8：记录时段 ===
-  // A. 白天派
   {id:'day_logger', emoji:'☀️', name:'白天派', cat:'branch', branch:'log_time',
    tiers:[5,20,80,300], unit:'条 9-18 点记录',
    getProgress:(r,h)=>r.filter(x=>x.time && x.time>='09:00' && x.time<='18:00').length,
-   desc:'白天记录的条数'},
-  // B. 夜晚派
+   desc:'白天 9-18 点记录的条数'},
   {id:'night_logger', emoji:'🌃', name:'夜行者', cat:'branch', branch:'log_time',
    tiers:[5,20,80,300], unit:'条 22-3 点记录',
    getProgress:(r,h)=>r.filter(x=>x.time && (x.time>='22:00' || x.time<='03:00')).length,
-   desc:'深夜记录的条数'},
+   desc:'深夜 22 点-凌晨 3 点记录的条数'},
 
-  // ============ 特殊勋章 (5) - 综合挑战 ============
+  // ============ 特殊勋章 (5) — 综合性挑战 ============
   {id:'health_aware', emoji:'🩺', name:'健康觉醒', cat:'special',
    tiers:[20,60,150,500], unit:'综合分',
-   getProgress:(r,h)=>{
-     // 综合分 = 总记录 + 类型多样性*5 + 连续天数*2
-     return r.length + new Set(r.map(x=>x.type)).size*5 + h.streak*2;
-   },
+   getProgress:(r,h)=>r.length + new Set(r.map(x=>x.type)).size*5 + h.streak*2,
    desc:'记录数 + 类型多样性 + 连续天数 综合分'},
   {id:'self_master', emoji:'🎯', name:'自律之王', cat:'special',
    tiers:[15,45,100,250], unit:'分自律值',
    getProgress:(r,h)=>{
-     // 自律 = 早起次数 + 不熬夜+不解压streak + 运动streak
      const early = r.filter(x=>x.type==='sleep' && x.data.waketime && x.data.waketime<='07:00').length;
-     return early + h.goodSleepStreak + h.sportStreak;
+     const zeroSmoke = r.filter(x=>x.type==='smoke' && (x.data.count||0)===0).length;
+     const zeroDrink = r.filter(x=>x.type==='drink' && (x.data.amount||0)===0).length;
+     return early + h.goodSleepStreak + zeroSmoke + zeroDrink;
    },
-   desc:'早起 + 良好睡眠 + 运动连续的综合自律分'},
+   desc:'早起 + 优质睡眠 + 戒烟戒酒打卡 综合分'},
   {id:'social_butterfly', emoji:'🦋', name:'社交达人', cat:'special',
-   tiers:[5,20,60,150], unit:'次社交场景',
+   tiers:[3,15,50,150], unit:'次社交场景',
    getProgress:(r,h)=>{
-     return r.filter(x=>x.type==='drink' && (x.data.scene||'').match(/聚会|应酬|约会|聚餐|庆祝/)).length
+     return r.filter(x=>x.type==='drink' && (x.data.scene||'').match(/聚会|应酬|约会|聚餐|庆祝|酒吧/)).length
           + r.filter(x=>x.type==='smoke' && (x.data.scene||'').match(/社交|应酬/)).length;
    },
-   desc:'社交场景记录数（聚会、应酬等）'},
+   desc:'记录的社交场景次数（聚会、应酬等）'},
   {id:'data_obsessed', emoji:'📊', name:'数据控', cat:'special',
-   tiers:[30,100,365,1000], unit:'天有记录',
-   getProgress:(r,h)=>new Set(r.map(x=>x.date)).size,
-   desc:'有记录的不同日期数'},
+   tiers:[30,100,365,1000], unit:'条记录',
+   getProgress:(r,h)=>r.length,
+   desc:'累计记录条数（数据狂魔）'},
   {id:'tayu_devotee', emoji:'💎', name:'他柚信徒', cat:'special',
    tiers:[100,300,1000,3000], unit:'分忠诚度',
-   getProgress:(r,h)=>r.length + h.streak*3,
-   desc:'记录数 + 连续天数加权'}
+   getProgress:(r,h)=>r.length + h.streak*3 + new Set(r.map(x=>x.date)).size*2,
+   desc:'综合记录数 + 连续 + 打卡天数'}
 ];
 
 /* 计算单个勋章状态：返回 {tier, tierIdx, unlocked, progress, target, nextTarget, percent} */
