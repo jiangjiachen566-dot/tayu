@@ -408,28 +408,7 @@
       </div>
     </div>
 
-    <div class="stats-row">
-      <div class="stat-card" onclick="filterRecent('jerk')">
-        <div class="head"><span class="t">本周解压</span><span class="badge" id="badge-jerk">+0</span></div>
-        <div class="num"><span id="cnt-jerk">0</span> 次</div>
-        <div class="sub">健康频率范围内</div>
-      </div>
-      <div class="stat-card c-a" onclick="filterRecent('sex')">
-        <div class="head"><span class="t">本周亲密</span><span class="badge">规律</span></div>
-        <div class="num"><span id="cnt-sex">0</span> 次</div>
-        <div class="sub">质量评分良好</div>
-      </div>
-      <div class="stat-card c-b" onclick="filterRecent('night')">
-        <div class="head"><span class="t">夜间起夜</span><span class="badge">正常</span></div>
-        <div class="num"><span id="cnt-night">0</span> 次</div>
-        <div class="sub">日均，睡眠良好</div>
-      </div>
-      <div class="stat-card c-c" onclick="filterRecent('pee')">
-        <div class="head"><span class="t">排尿异常</span><span class="badge">关注</span></div>
-        <div class="num"><span id="cnt-pee-abn">0</span> 次</div>
-        <div class="sub">建议补充水分</div>
-      </div>
-    </div>
+    <div class="stats-row" id="statsRow"></div>
 
     <div class="section-title"><h3>🏆 我的勋章 <span style="font-size:12px;color:var(--text-3);font-weight:400;margin-left:6px;" id="medalCount">0/0</span></h3><span class="more" onclick="openMedals()">查看全部 ›</span></div>
     <div class="medal-row" id="medalRow"></div>
@@ -733,6 +712,9 @@ async function authSubmit(){
     supaAuth.saveSession(res);
     // 派生加密密钥
     CRYPTO_KEY = await deriveKey(pw, CURRENT_USER.id);
+    // 缓存密码到 sessionStorage（仅本会话内有效，关闭浏览器自动失效，刷新保留）
+    // 这是隐私权衡：sessionStorage 可被同源 JS 读取，但本 App 没引入第三方脚本，可接受
+    try { sessionStorage.setItem('tayu_pw', btoa(unescape(encodeURIComponent(pw)))); } catch(e){}
     // 加载云端数据
     await loadFromCloud();
     enterApp();
@@ -763,6 +745,7 @@ async function logoutUser(){
   CRYPTO_KEY = null;
   records = [];
   localStorage.removeItem(LS_KEY);
+  try { sessionStorage.removeItem('tayu_pw'); } catch(e){}
   document.getElementById('authPage').classList.remove('hide');
   closeModal();
 }
@@ -1265,12 +1248,50 @@ function renderHome(){
   setGreeting();
   const wk = weekRecords();
   const cnt = key => wk.filter(r=>r.type===key).length;
-  document.getElementById('cnt-jerk').textContent = cnt('jerk');
-  document.getElementById('cnt-sex').textContent  = cnt('sex');
-  // 起夜：周内总次数
-  const nightTotal = wk.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
-  document.getElementById('cnt-night').textContent = (nightTotal/7).toFixed(1);
-  document.getElementById('cnt-pee-abn').textContent = wk.filter(r=>r.type==='pee' && peeRisk(r.data).level!=='正常').length;
+
+  // ===== 动态统计卡：只显示有过记录的类型 =====
+  const allTypesUsed = new Set(records.map(r=>r.type));
+  const statCards = [];
+  if(allTypesUsed.has('jerk')) statCards.push({
+    cls:'', t:'本周解压', badge:'+'+cnt('jerk'), num:cnt('jerk'), unit:'次', sub:'频率监测', type:'jerk'
+  });
+  if(allTypesUsed.has('sex')) statCards.push({
+    cls:'c-a', t:'本周亲密', badge:'规律', num:cnt('sex'), unit:'次', sub:'伴侣关系', type:'sex'
+  });
+  if(allTypesUsed.has('night')){
+    const nightTotal = wk.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
+    statCards.push({cls:'c-b', t:'夜间起夜', badge:nightTotal>=14?'偏多':'正常', num:(nightTotal/7).toFixed(1), unit:'次', sub:'日均', type:'night'});
+  }
+  if(allTypesUsed.has('pee')){
+    const abn = wk.filter(r=>r.type==='pee' && peeRisk(r.data).level!=='正常').length;
+    statCards.push({cls:'c-c', t:'排尿异常', badge:abn>0?'关注':'正常', num:abn, unit:'次', sub:abn>0?'建议补水':'状况良好', type:'pee'});
+  }
+  if(allTypesUsed.has('sport')) statCards.push({
+    cls:'', t:'本周运动', badge:cnt('sport')>=3?'达标':'加油', num:cnt('sport'), unit:'次', sub:'坚持就好', type:'sport'
+  });
+  if(allTypesUsed.has('sleep')){
+    const sleepRecs = wk.filter(r=>r.type==='sleep');
+    const avgH = sleepRecs.length ? (sleepRecs.reduce((a,r)=>a+(r.data.hours||calcSleepHours(r.data.bedtime,r.data.waketime)||0),0)/sleepRecs.length).toFixed(1) : 0;
+    statCards.push({cls:'c-a', t:'平均睡眠', badge:avgH>=7?'良好':'不足', num:avgH, unit:'h', sub:'本周日均', type:'sleep'});
+  }
+  if(allTypesUsed.has('mood')){
+    const happyN = wk.filter(r=>r.type==='mood' && (r.data.mood||'').includes('开心')).length;
+    statCards.push({cls:'c-b', t:'好心情', badge:happyN>=3?'阳光':'加油', num:happyN, unit:'天', sub:'本周开心次数', type:'mood'});
+  }
+
+  const sr = document.getElementById('statsRow');
+  if(statCards.length===0){
+    sr.style.display = 'none';
+  } else {
+    sr.style.display = 'grid';
+    sr.innerHTML = statCards.slice(0,4).map(c=>`
+      <div class="stat-card ${c.cls}" onclick="filterRecent('${c.type}')">
+        <div class="head"><span class="t">${c.t}</span><span class="badge">${c.badge}</span></div>
+        <div class="num">${c.num} ${c.unit}</div>
+        <div class="sub">${c.sub}</div>
+      </div>
+    `).join('');
+  }
 
   // ===== 健康指数计算（可点击查看明细） =====
   const h = calcHealthScore(wk);
@@ -1341,14 +1362,35 @@ function generateSmartTips(){
   const cntY = key => yRec.filter(r=>r.type===key).length;
   const cntW = key => wRec.filter(r=>r.type===key).length;
 
-  // ===== 单维度规则 =====
-  // 解压频率
-  if(cntY('jerk')>=3) tips.push({emoji:'⚠️', text:'昨天解压超过 3 次，建议今天给身体一些休息时间，过度可能引起前列腺充血与疲劳。'});
-  else if(cntY('jerk')===2) tips.push({emoji:'💡', text:'昨天解压 2 次，频率偏高。今天可以多喝水、避免久坐，让前列腺充分恢复。'});
-  if(cntW('jerk')>=10) tips.push({emoji:'🚨', text:'近 7 天解压 '+cntW('jerk')+' 次，频率明显偏高，建议适度调整、增加运动转移注意力。'});
-  if(cntW('jerk')===0) tips.push({emoji:'😊', text:'本周还没有解压记录，规律性释放对前列腺健康也有帮助哦。'});
+  // ===== 排精频次综合评估（解压 + 性生活，生理上等价） =====
+  // 现代男科共识：每周 2-4 次排精较为合理（哈佛 18 年随访研究：
+  // 21+ 次/月较 4-7 次/月前列腺癌风险降低约 20%；过频则可能引起前列腺充血、疲劳）
+  const ejacY = cntY('jerk') + cntY('sex');                        // 昨日总排精次数
+  const ejacW = cntW('jerk') + cntW('sex');                        // 近 7 日总排精次数
+  const jerkY = cntY('jerk'), sexY = cntY('sex');
 
-  // 排尿
+  if(ejacY>=4){
+    tips.push({emoji:'⚠️', text:`昨天总排精 ${ejacY} 次（解压 ${jerkY} + 亲密 ${sexY}），明显过频。前列腺需要至少 24-48 小时恢复，今天建议给身体放假，多喝水避免久坐。`});
+  } else if(ejacY===3){
+    tips.push({emoji:'💡', text:`昨天排精 3 次（解压 ${jerkY} + 亲密 ${sexY}），偏频。今天注意补充锌、蛋白质，避免再次密集刺激。`});
+  } else if(ejacY===2){
+    tips.push({emoji:'🌿', text:`昨天排精 2 次，处于上限边缘，今日适度休息更有利于身体恢复。`});
+  }
+
+  if(ejacW>=15){
+    tips.push({emoji:'🚨', text:`近 7 天总排精 ${ejacW} 次，频率过高（健康参考：每周 2-4 次）。长期高频可能导致睾酮下降、注意力不集中、前列腺慢性充血，建议本周适度调整。`});
+  } else if(ejacW>=8){
+    tips.push({emoji:'💡', text:`近 7 天排精 ${ejacW} 次（每周 2-4 次较合理），略偏多，建议适度间隔以保持质量。`});
+  } else if(ejacW>=2 && ejacW<=4){
+    tips.push({emoji:'✨', text:`近 7 天排精 ${ejacW} 次，频率非常合理！哈佛研究表明每周 2-4 次排精对前列腺健康最有益。`});
+  } else if(ejacW===1){
+    tips.push({emoji:'💪', text:'近 7 天只有 1 次排精，规律性释放有助于前列腺新陈代谢，每周 2-4 次是健康参考。'});
+  } else if(ejacW===0 && cntW('sleep')>0){
+    // 用户在用 App 但完全无排精记录
+    tips.push({emoji:'🌱', text:'本周无排精记录。哈佛研究：完全禁欲 → 前列腺液淤积反而可能增加风险。规律性释放（每周 2-4 次）才是最佳。'});
+  }
+
+  // ===== 排尿（基于 peeRisk）=====
   const yPee = yRec.filter(r=>r.type==='pee');
   const yPeeAbn = yPee.filter(r=>peeRisk(r.data).level!=='正常');
   if(yPeeAbn.length){
@@ -1357,37 +1399,47 @@ function generateSmartTips(){
     else if(worst.level==='中度异常') tips.push({emoji:'⚠️', text:'昨天排尿评估为中度异常，今日多喝水（1.5-2L）、避免久坐与辛辣，1-2 天未改善建议就医。'});
     else tips.push({emoji:'💧', text:'昨天排尿有轻度异常，今天注意补水、规律饮食，观察症状是否缓解。'});
   }
-  // 起夜
+
+  // ===== 起夜 =====
   const nightCnt = yRec.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
   if(nightCnt>=3) tips.push({emoji:'🌙', text:`昨晚起夜 ${nightCnt} 次，明显偏多。可能与前列腺增生、糖代谢或睡前饮水有关，建议睡前 2h 控水并关注趋势。`});
   else if(nightCnt===2) tips.push({emoji:'🌙', text:'昨晚起夜 2 次，处于关注边界，今日睡前 2 小时减少饮水试试。'});
 
-  // ===== 组合规则（关键：你提到的"多次解压+尿液异常+起夜"）=====
-  if(cntY('jerk')>=2 && yPeeAbn.length){
-    tips.push({emoji:'❗', text:'昨天解压频次偏高且排尿出现异常，可能造成前列腺暂时性充血。今天建议：① 解压休息一天 ② 多喝温水 ③ 温水坐浴 10 分钟。'});
+  // ===== 组合规则（更新为"排精"维度，含性生活）=====
+  if(ejacY>=2 && yPeeAbn.length){
+    tips.push({emoji:'❗', text:'昨天排精频次偏高 + 排尿异常，前列腺可能暂时性充血。今天建议：① 排精休息一天 ② 多喝温水 ③ 温水坐浴 10-15 分钟 ④ 暂避辛辣酒精。'});
   }
-  if(cntY('jerk')>=2 && nightCnt>=2){
-    tips.push({emoji:'❗', text:'昨天解压频次较高 + 起夜增多，前列腺可能受刺激。今日避免久坐、骑车，给身体充分恢复。'});
+  if(ejacY>=2 && nightCnt>=2){
+    tips.push({emoji:'❗', text:'昨天排精频次较高 + 起夜增多，前列腺可能受刺激。今日避免久坐、骑车，给身体充分恢复。'});
   }
   if(yPeeAbn.length && nightCnt>=2){
     tips.push({emoji:'🚨', text:'排尿异常 + 起夜增多双重信号，建议尽快做尿常规 + 前列腺彩超检查，不要拖。'});
   }
-  if(cntY('jerk')>=2 && yPeeAbn.length && nightCnt>=2){
-    tips.push({emoji:'🚨', text:'解压频高、排尿异常、夜尿增多三项同时出现，前列腺负担明显。建议本周内就医，并 1-2 周内暂停解压。'});
+  if(ejacY>=2 && yPeeAbn.length && nightCnt>=2){
+    tips.push({emoji:'🚨', text:'排精频高 + 排尿异常 + 夜尿增多三项同时出现，前列腺负担明显。建议本周内就医，并 1-2 周内显著降低排精频率。'});
   }
-  // 性生活后建议
-  if(cntY('sex')>=1) tips.push({emoji:'💖', text:'昨天有亲密生活，今天可以适当补充蛋白质与锌（蚝、坚果、瘦肉），有助于身体恢复。'});
 
-  // 运动建议
+  // ===== 性生活专属建议（区别于"自我解压"）=====
+  if(sexY>=1){
+    tips.push({emoji:'💖', text:'昨天有亲密生活，今天可适当补充蛋白质 + 锌（蚝、坚果、瘦肉），有助于精液品质恢复（约 48-72h）。'});
+  }
+  if(cntW('sex')===0 && cntW('jerk')>=5){
+    tips.push({emoji:'🤝', text:'本周亲密生活记录为 0，但解压频次较高。规律的伴侣关系对心理与生理健康都更有益。'});
+  }
+
+  // ===== 运动 =====
   if(cntW('sport')===0) tips.push({emoji:'🏃', text:'本周还没有运动记录！每周 3 次 30 分钟有氧可显著提升睾酮水平，今天动起来吧。'});
   else if(cntW('sport')>=4) tips.push({emoji:'💪', text:'本周已运动 '+cntW('sport')+' 次，状态很棒！注意运动后充分拉伸与补水。'});
 
-  // 睡眠
+  // ===== 睡眠 =====
   const ySleep = yRec.find(r=>r.type==='sleep');
-  if(ySleep && ySleep.data.hours<6) tips.push({emoji:'😴', text:`昨天只睡了 ${ySleep.data.hours} 小时，睡眠不足会降低睾酮 10-15%，今晚目标 7.5 小时以上。`});
-  else if(ySleep && ySleep.data.hours>=8) tips.push({emoji:'✨', text:'昨天睡眠充足，激素分泌处于良好状态，今天的状态会很不错！'});
+  if(ySleep){
+    const h = ySleep.data.hours || calcSleepHours(ySleep.data.bedtime, ySleep.data.waketime);
+    if(h<6) tips.push({emoji:'😴', text:`昨天只睡了 ${h} 小时，睡眠不足会降低睾酮 10-15%，今晚目标 7.5 小时以上。`});
+    else if(h>=8) tips.push({emoji:'✨', text:'昨天睡眠充足，激素分泌处于良好状态，今天的状态会很不错！'});
+  }
 
-  // 情绪
+  // ===== 情绪 =====
   const yMood = yRec.find(r=>r.type==='mood');
   if(yMood){
     if((yMood.data.mood||'').includes('焦虑') || (yMood.data.mood||'').includes('低落'))
@@ -1395,12 +1447,12 @@ function generateSmartTips(){
     if(yMood.data.stress>=4) tips.push({emoji:'🧘', text:'昨天压力评分较高，今日可尝试 4-7-8 呼吸法 5 分钟，或听一些轻音乐放松。'});
   }
 
-  // 综合：今日打卡进度提醒
+  // ===== 综合：今日打卡进度 =====
   const todayTypes = new Set(records.filter(r=>r.date===today).map(r=>r.type));
   if(todayTypes.size===0) tips.push({emoji:'📝', text:'今天还一项都没记呢，从最简单的睡眠或情绪开始记录吧～'});
   else if(todayTypes.size>=3) tips.push({emoji:'🎉', text:`今天已经记录 ${todayTypes.size} 项，自我观察意识满分！`});
 
-  // 兜底通用建议
+  // ===== 兜底通用建议 =====
   if(tips.length<2){
     tips.push({emoji:'💡', text:'每日饮水 1500-2000ml，有助于泌尿系统健康。'});
     tips.push({emoji:'🥦', text:'番茄红素、锌、欧米伽 3 是前列腺保健的关键营养素。'});
@@ -2095,10 +2147,25 @@ async function bootstrap(){
   renderCalendar();
   selectDay(todayStr());
 
-  // 尝试加载本地保存的会话
   const session = supaAuth.loadSession();
   if(session){
-    // 已有会话但需要密码解密本地数据 → 显示登录页让用户输密码
+    // 尝试用 sessionStorage 缓存的密码自动解锁
+    let cachedPw = null;
+    try { cachedPw = sessionStorage.getItem('tayu_pw'); } catch(e){}
+    if(cachedPw){
+      try {
+        const pw = decodeURIComponent(escape(atob(cachedPw)));
+        CRYPTO_KEY = await deriveKey(pw, session.user.id);
+        await loadFromCloud();
+        enterApp();
+        console.log('[tayu] 自动恢复会话成功');
+        return;
+      } catch(e){
+        console.warn('[tayu] 自动解锁失败：', e);
+        sessionStorage.removeItem('tayu_pw');
+      }
+    }
+    // 已有会话但没缓存密码 → 让用户输密码
     document.getElementById('authPage').classList.remove('hide');
     document.getElementById('authEmail').value = session.user.email;
     document.getElementById('authEmail').readOnly = true;
