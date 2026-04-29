@@ -178,6 +178,8 @@
   .ic.c-sport{background:var(--green-soft);color:var(--green);}
   .ic.c-sleep{background:var(--cyan-soft);color:var(--cyan);}
   .ic.c-mood{background:var(--pink-soft);color:var(--pink);}
+  .ic.c-smoke{background:#f3e8d8;color:#92400e;}
+  .ic.c-drink{background:#fee2e2;color:#dc2626;}
   .ic.c-exam{background:#e2e8f0;color:#475569;}
 
   /* ============ 数据/打卡页 ============ */
@@ -374,7 +376,7 @@
 <div class="phone">
 
   <!-- ============ 登录/注册页 ============ -->
-  <div class="auth-page" id="authPage">
+  <div class="auth-page hide" id="authPage">
     <div class="auth-logo">🩺</div>
     <h1 class="auth-title">他柚 TAYU</h1>
     <p class="auth-sub">男性健康管理 · 数据云同步</p>
@@ -889,7 +891,9 @@ const TYPES = [
   {key:'pee',   name:'排尿监测', emoji:'💧', color:'pee',   cls:'c-pee',   tip:'科学评估前列腺/泌尿健康'},
   {key:'sport', name:'运动打卡', emoji:'🏃', color:'sport', cls:'c-sport', tip:'提升体能与精力'},
   {key:'sleep', name:'睡眠时长', emoji:'😴', color:'sleep', cls:'c-sleep', tip:'充足睡眠是健康之本'},
-  {key:'mood',  name:'情绪状态', emoji:'🧠', color:'mood',  cls:'c-mood',  tip:'心理健康同样重要'}
+  {key:'mood',  name:'情绪状态', emoji:'🧠', color:'mood',  cls:'c-mood',  tip:'心理健康同样重要'},
+  {key:'smoke', name:'抽烟打卡', emoji:'🚬', color:'smoke', cls:'c-smoke', tip:'记录每日吸烟量'},
+  {key:'drink', name:'饮酒打卡', emoji:'🍺', color:'drink', cls:'c-drink', tip:'追踪酒量与醉度'}
 ];
 
 /* =========================================================
@@ -926,6 +930,11 @@ function recordSummary(r){
       return `${d.bedtime||'-'} → ${d.waketime||'-'} · ${h} 小时 · ${q.label}`;
     }
     case 'mood':  return `${d.mood||''} · 压力 ${d.stress||'-'}/5`;
+    case 'smoke': return `${d.brand||'-'} ${d.count||1} 支 · ${d.scene||''}${d.mood==='咳嗽不适'?' · ⚠️':''}`;
+    case 'drink':{
+      const drunkLabels = ['清醒','微醺','有点醉','醉了','大醉','断片'];
+      return `${d.kind||'-'} ${d.amount||1} ${d.unit||'杯'} · ${drunkLabels[d.drunk||0]||''}${(d.drunk||0)>=3?' 🚨':''}`;
+    }
     default: return '';
   }
 }
@@ -1063,6 +1072,21 @@ function renderForm(){
       body += rowChip('心情','mood',['😄 开心','😊 平静','😐 一般','😞 低落','😣 焦虑'],'😄 开心');
       body += rowChip('压力(0-5)','stress',[0,1,2,3,4,5],2);
       break;
+    case 'smoke':
+      formState.data = {brand:'国产烟', count:1, scene:'饭后', mood:'解压'};
+      body += rowChip('烟种','brand',['国产烟','进口烟','电子烟','卷烟','雪茄','其他'],'国产烟');
+      body += rowNumber('支数','count',1);
+      body += rowChip('场景','scene',['早起','饭后','工作压力','社交应酬','喝酒时','睡前','无聊'],'饭后');
+      body += rowChip('感受','mood',['解压','享受','无感','后悔','咳嗽不适'],'解压');
+      break;
+    case 'drink':
+      formState.data = {kind:'啤酒', amount:1, unit:'瓶', drunk:1, scene:'独酌'};
+      body += rowChip('酒种','kind',['啤酒','白酒','红酒','洋酒','清酒','鸡尾酒','其他'],'啤酒');
+      body += rowNumber('饮用量','amount',1,0.5);
+      body += rowChip('单位','unit',['瓶','杯','两','听','打'],'瓶');
+      body += rowChip('醉度(0-5)','drunk',[{k:0,v:'清醒'},{k:1,v:'微醺'},{k:2,v:'有点醉'},{k:3,v:'醉了'},{k:4,v:'大醉'},{k:5,v:'断片'}],1);
+      body += rowChip('场景','scene',['独酌','朋友聚会','商务应酬','约会','家庭聚餐','酒吧','庆祝'],'独酌');
+      break;
   }
   body += `<div class="form-row" style="align-items:flex-start;"><span class="k">备注</span><textarea placeholder="可选，记录今天的感受…" oninput="formState.note=this.value"></textarea></div>`;
   if(curType==='pee'){
@@ -1190,8 +1214,22 @@ async function saveRecord(){
 /* =========================================================
    首页渲染
    ========================================================= */
+function getUsername(){
+  return localStorage.getItem('tayu_username') || '集帅';
+}
+function setUsername(name){
+  if(!name || !name.trim()) return;
+  localStorage.setItem('tayu_username', name.trim());
+  setGreeting();
+  if(document.getElementById('page-profile').classList.contains('active')) renderProfilePage();
+}
 function setGreeting(){
-  document.getElementById('greet').textContent = '集帅，今天也要好好爱自己 ❤️';
+  document.getElementById('greet').textContent = getUsername() + '，今天也要好好爱自己 ❤️';
+}
+function promptUsername(){
+  const cur = getUsername();
+  const v = prompt('设置你的昵称（首页问候和个人中心会用到）', cur);
+  if(v !== null) setUsername(v);
 }
 function weekRecords(){
   const now = new Date();
@@ -1556,30 +1594,58 @@ function filterRecent(type){
    勋章 / 成就系统
    ========================================================= */
 const MEDALS = [
-  // 简单
-  {id:'first_record',  emoji:'🎯', name:'初次记录',     desc:'完成第一条健康记录',         diff:'easy', check:(r,h)=>r.length>=1},
-  {id:'streak_3',      emoji:'🔥', name:'三日坚持',     desc:'连续 3 天有记录',           diff:'easy', check:(r,h)=>h.streak>=3},
-  {id:'sport_first',   emoji:'🏃', name:'迈开腿',       desc:'记录第一次运动',             diff:'easy', check:(r,h)=>r.some(x=>x.type==='sport')},
-  {id:'sleep_first',   emoji:'😴', name:'好梦初醒',     desc:'记录第一次睡眠',             diff:'easy', check:(r,h)=>r.some(x=>x.type==='sleep')},
-  {id:'pee_first',     emoji:'💧', name:'健康观察员',   desc:'完成第一次排尿监测',         diff:'easy', check:(r,h)=>r.some(x=>x.type==='pee')},
-  // 中等
-  {id:'streak_7',      emoji:'⭐', name:'连续一周',     desc:'连续 7 天打卡',             diff:'mid',  check:(r,h)=>h.streak>=7},
-  {id:'sport_5',       emoji:'💪', name:'运动新星',     desc:'累计运动 5 次',             diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='sport').length>=5},
-  {id:'sleep_8h',      emoji:'🌙', name:'高质量睡眠',   desc:'单次睡眠 ≥ 8 小时',         diff:'mid',  check:(r,h)=>r.some(x=>x.type==='sleep' && (x.data.hours||calcSleepHours(x.data.bedtime,x.data.waketime))>=8)},
-  {id:'no_jerk_3',     emoji:'🧘', name:'三日禅定',     desc:'连续 3 天无解压记录',       diff:'mid',  check:(r,h)=>h.noJerkStreak>=3},
-  {id:'pee_normal_5',  emoji:'✅', name:'泌尿健康',     desc:'累计 5 次排尿评估为正常',   diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='pee'&&peeRisk(x.data).level==='正常').length>=5},
-  {id:'mood_happy_5',  emoji:'😄', name:'阳光心态',     desc:'累计 5 次开心情绪记录',     diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='mood'&&(x.data.mood||'').includes('开心')).length>=5},
-  {id:'all_types',     emoji:'🎨', name:'全能达人',     desc:'7 种功能各使用至少一次',     diff:'mid',  check:(r,h)=>new Set(r.map(x=>x.type)).size>=7},
-  // 困难
-  {id:'streak_30',     emoji:'👑', name:'月度王者',     desc:'连续 30 天打卡',            diff:'hard', check:(r,h)=>h.streak>=30},
-  {id:'no_jerk_7',     emoji:'🛡️', name:'七日修行',     desc:'连续 7 天不释放',           diff:'hard', check:(r,h)=>h.noJerkStreak>=7},
-  {id:'no_jerk_30',    emoji:'🏆', name:'月度禁欲者',   desc:'连续 30 天不释放',          diff:'hard', check:(r,h)=>h.noJerkStreak>=30},
-  {id:'sport_30',      emoji:'🥇', name:'健身狂魔',     desc:'累计运动 30 次',            diff:'hard', check:(r,h)=>r.filter(x=>x.type==='sport').length>=30},
-  {id:'sleep_perfect', emoji:'💎', name:'睡眠大师',     desc:'连续 7 天睡眠 ≥ 7 小时',     diff:'hard', check:(r,h)=>h.goodSleepStreak>=7},
-  {id:'no_night_7',    emoji:'🌟', name:'安睡七夜',     desc:'连续 7 天无起夜记录',       diff:'hard', check:(r,h)=>h.noNightStreak>=7},
-  {id:'sex_regular',   emoji:'💝', name:'规律生活',     desc:'单月亲密生活 ≥ 4 次',       diff:'hard', check:(r,h)=>h.sexThisMonth>=4},
-  {id:'records_100',   emoji:'💯', name:'百次记录',     desc:'累计 100 条健康记录',       diff:'hard', check:(r,h)=>r.length>=100},
-  {id:'records_365',   emoji:'🌈', name:'年度健康官',   desc:'累计 365 条记录',           diff:'hard', check:(r,h)=>r.length>=365}
+  // ====== 简单 (10) ======
+  {id:'first_record', emoji:'🎯', name:'初次记录',   desc:'完成第一条健康记录', diff:'easy', check:(r,h)=>r.length>=1},
+  {id:'streak_3',     emoji:'🔥', name:'三日坚持',   desc:'连续 3 天有记录',     diff:'easy', check:(r,h)=>h.streak>=3},
+  {id:'sport_first',  emoji:'🏃', name:'迈开腿',     desc:'记录第一次运动',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='sport')},
+  {id:'sleep_first',  emoji:'😴', name:'好梦初醒',   desc:'记录第一次睡眠',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='sleep')},
+  {id:'pee_first',    emoji:'💧', name:'健康观察员', desc:'完成第一次排尿监测', diff:'easy', check:(r,h)=>r.some(x=>x.type==='pee')},
+  {id:'mood_first',   emoji:'🧠', name:'心情记录员', desc:'记录第一次心情',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='mood')},
+  {id:'sex_first',    emoji:'❤️', name:'幸福在握',   desc:'记录第一次亲密生活', diff:'easy', check:(r,h)=>r.some(x=>x.type==='sex')},
+  {id:'jerk_first',   emoji:'✋', name:'坦诚记录',   desc:'记录第一次解压',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='jerk')},
+  {id:'smoke_first',  emoji:'🚬', name:'烟事坦白',   desc:'第一次记录抽烟',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='smoke')},
+  {id:'drink_first',  emoji:'🍺', name:'酒事坦白',   desc:'第一次记录饮酒',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='drink')},
+
+  // ====== 中等 (16) ======
+  {id:'streak_7',     emoji:'⭐', name:'连续一周',   desc:'连续 7 天打卡',       diff:'mid',  check:(r,h)=>h.streak>=7},
+  {id:'sport_5',      emoji:'💪', name:'运动新星',   desc:'累计运动 5 次',       diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='sport').length>=5},
+  {id:'sleep_8h',     emoji:'🌙', name:'高质量睡眠', desc:'单次睡眠 ≥ 8 小时',   diff:'mid',  check:(r,h)=>r.some(x=>x.type==='sleep' && (x.data.hours||calcSleepHours(x.data.bedtime,x.data.waketime))>=8)},
+  {id:'no_jerk_3',    emoji:'🧘', name:'三日禅定',   desc:'连续 3 天无解压',     diff:'mid',  check:(r,h)=>h.noJerkStreak>=3},
+  {id:'pee_normal_5', emoji:'✅', name:'泌尿健康',   desc:'5 次排尿评估正常',    diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='pee'&&peeRisk(x.data).level==='正常').length>=5},
+  {id:'mood_happy_5', emoji:'😄', name:'阳光心态',   desc:'5 次开心情绪记录',    diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='mood'&&(x.data.mood||'').includes('开心')).length>=5},
+  {id:'all_types',    emoji:'🎨', name:'全能达人',   desc:'9 种功能各用至少 1 次', diff:'mid', check:(r,h)=>new Set(r.map(x=>x.type)).size>=9},
+  {id:'no_smoke_7',   emoji:'🌱', name:'戒烟周', desc:'连续 7 天无抽烟记录', diff:'mid', check:(r,h)=>h.noSmokeStreak>=7},
+  {id:'no_drink_7',   emoji:'🍵', name:'戒酒周', desc:'连续 7 天无饮酒记录', diff:'mid', check:(r,h)=>h.noDrinkStreak>=7},
+  {id:'smoke_count_50',   emoji:'💨', name:'半包大将', desc:'累计抽烟 50 支', diff:'mid', check:(r,h)=>h.smokeTotal>=50},
+  {id:'drink_count_5',    emoji:'🥂', name:'微醺常客', desc:'累计饮酒 5 次', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='drink').length>=5},
+  {id:'sex_5',        emoji:'💕', name:'恩爱小情侣', desc:'累计亲密 5 次', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='sex').length>=5},
+  {id:'jerk_marathon',emoji:'🏃‍♂️', name:'解压马拉松', desc:'单周解压 ≥ 7 次（请适度）', diff:'mid', check:(r,h)=>h.maxWeekJerk>=7},
+  {id:'late_bed_3',   emoji:'🦉', name:'熬夜三连', desc:'3 次入睡晚于 1 点', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.bedtime && (x.data.bedtime>='01:00' && x.data.bedtime<='04:00')).length>=3},
+  {id:'morning_5',    emoji:'🐦', name:'早起鸟儿', desc:'5 次起床早于 7 点', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.waketime && x.data.waketime<='07:00').length>=5},
+  {id:'records_30',   emoji:'📝', name:'30 条达成', desc:'累计 30 条记录', diff:'mid', check:(r,h)=>r.length>=30},
+
+  // ====== 困难 (16) ======
+  {id:'streak_14',    emoji:'🔱', name:'两周不断', desc:'连续 14 天打卡', diff:'hard', check:(r,h)=>h.streak>=14},
+  {id:'streak_30',    emoji:'👑', name:'月度王者', desc:'连续 30 天打卡', diff:'hard', check:(r,h)=>h.streak>=30},
+  {id:'streak_100',   emoji:'💎', name:'百日不辍', desc:'连续 100 天打卡', diff:'hard', check:(r,h)=>h.streak>=100},
+  {id:'no_jerk_7',    emoji:'🛡️', name:'七日修行', desc:'连续 7 天不释放', diff:'hard', check:(r,h)=>h.noJerkStreak>=7},
+  {id:'no_jerk_30',   emoji:'🏆', name:'月度禁欲者', desc:'连续 30 天不释放', diff:'hard', check:(r,h)=>h.noJerkStreak>=30},
+  {id:'sport_30',     emoji:'🥇', name:'健身狂魔', desc:'累计运动 30 次', diff:'hard', check:(r,h)=>r.filter(x=>x.type==='sport').length>=30},
+  {id:'sport_100',    emoji:'🦾', name:'铁人精神', desc:'累计运动 100 次', diff:'hard', check:(r,h)=>r.filter(x=>x.type==='sport').length>=100},
+  {id:'sleep_perfect',emoji:'💎', name:'睡眠大师', desc:'连续 7 天睡眠 ≥ 7h', diff:'hard', check:(r,h)=>h.goodSleepStreak>=7},
+  {id:'no_night_7',   emoji:'🌟', name:'安睡七夜', desc:'连续 7 天无起夜', diff:'hard', check:(r,h)=>h.noNightStreak>=7},
+  {id:'sex_regular',  emoji:'💝', name:'规律生活', desc:'单月亲密 ≥ 4 次', diff:'hard', check:(r,h)=>h.sexThisMonth>=4},
+  {id:'records_100',  emoji:'💯', name:'百次记录', desc:'累计 100 条', diff:'hard', check:(r,h)=>r.length>=100},
+  {id:'records_365',  emoji:'🌈', name:'年度健康官', desc:'累计 365 条', diff:'hard', check:(r,h)=>r.length>=365},
+  {id:'no_smoke_30',  emoji:'🌳', name:'戒烟达人', desc:'连续 30 天无抽烟', diff:'hard', check:(r,h)=>h.noSmokeStreak>=30},
+  {id:'no_drink_30',  emoji:'🚱', name:'戒酒达人', desc:'连续 30 天无饮酒', diff:'hard', check:(r,h)=>h.noDrinkStreak>=30},
+  {id:'drunk_3',      emoji:'🥴', name:'酒桌豪侠', desc:'3 次喝到大醉以上', diff:'hard', check:(r,h)=>r.filter(x=>x.type==='drink' && (x.data.drunk||0)>=4).length>=3},
+  {id:'heavy_smoker', emoji:'🚭', name:'戒烟救星', desc:'抽烟由多减少 50%（需 ≥ 14 天数据）', diff:'hard', check:(r,h)=>h.smokeReduced},
+
+  // ====== 隐藏彩蛋 (3) ======
+  {id:'all_in_day',   emoji:'🎪', name:'极限挑战', desc:'单日 6 种类型记录', diff:'hard', check:(r,h)=>h.maxDayTypes>=6},
+  {id:'midnight_owl', emoji:'🌃', name:'子夜守门员', desc:'凌晨 1-4 点记录 5 次', diff:'hard', check:(r,h)=>r.filter(x=>x.time && x.time>='01:00' && x.time<='04:00').length>=5},
+  {id:'completionist',emoji:'🌠', name:'勋章收藏家', desc:'解锁 30 枚以上勋章', diff:'hard', check:(r,h)=>h.unlockedCount>=30}
 ];
 
 function calcMedalHints(){
@@ -1619,10 +1685,59 @@ function calcMedalHints(){
     if(hasNight) break;
     noNightStreak++; d.setDate(d.getDate()-1);
   }
+  // 连续无抽烟
+  let noSmokeStreak=0; d=new Date();
+  for(let i=0;i<400;i++){
+    const ds=fmtDate(d);
+    const hasAny = records.some(r=>r.date===ds);
+    const hasSmoke = records.some(r=>r.date===ds && r.type==='smoke');
+    if(!hasAny) break;
+    if(hasSmoke) break;
+    noSmokeStreak++; d.setDate(d.getDate()-1);
+  }
+  // 连续无饮酒
+  let noDrinkStreak=0; d=new Date();
+  for(let i=0;i<400;i++){
+    const ds=fmtDate(d);
+    const hasAny = records.some(r=>r.date===ds);
+    const hasDrink = records.some(r=>r.date===ds && r.type==='drink');
+    if(!hasAny) break;
+    if(hasDrink) break;
+    noDrinkStreak++; d.setDate(d.getDate()-1);
+  }
   // 本月亲密次数
   const ym = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
   const sexThisMonth = records.filter(r=>r.type==='sex' && r.date.startsWith(ym)).length;
-  return {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth};
+  // 累计抽烟支数
+  const smokeTotal = records.filter(r=>r.type==='smoke').reduce((a,r)=>a+(r.data.count||0),0);
+  // 抽烟减半检测：前 14 天 vs 最近 14 天
+  let smokeReduced = false;
+  if(records.filter(r=>r.type==='smoke').length>=10){
+    const now = new Date();
+    const recent14 = records.filter(r=>r.type==='smoke' && (now-new Date(r.date))/86400000<=14).reduce((a,r)=>a+(r.data.count||0),0);
+    const old14 = records.filter(r=>r.type==='smoke' && (now-new Date(r.date))/86400000>14 && (now-new Date(r.date))/86400000<=28).reduce((a,r)=>a+(r.data.count||0),0);
+    if(old14>=10 && recent14<=old14*0.5) smokeReduced = true;
+  }
+  // 单周最高解压次数
+  const weekJerkMap = {};
+  records.filter(r=>r.type==='jerk').forEach(r=>{
+    const wk = weekKey(r.date);
+    weekJerkMap[wk] = (weekJerkMap[wk]||0) + 1;
+  });
+  const maxWeekJerk = Math.max(0, ...Object.values(weekJerkMap));
+  // 单日最多类型数
+  const dayTypeMap = {};
+  records.forEach(r=>{
+    if(!dayTypeMap[r.date]) dayTypeMap[r.date] = new Set();
+    dayTypeMap[r.date].add(r.type);
+  });
+  const maxDayTypes = Math.max(0, ...Object.values(dayTypeMap).map(s=>s.size));
+
+  // 已解锁数（用于"勋章收藏家"自我引用，先算一次基础的）
+  const baseHints = {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth, noSmokeStreak, noDrinkStreak, smokeTotal, smokeReduced, maxWeekJerk, maxDayTypes, unlockedCount:0};
+  const unlockedCount = MEDALS.filter(m => m.id !== 'completionist' && m.check(records, baseHints)).length;
+
+  return {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth, noSmokeStreak, noDrinkStreak, smokeTotal, smokeReduced, maxWeekJerk, maxDayTypes, unlockedCount};
 }
 
 function getMedalStatus(){
@@ -1631,15 +1746,15 @@ function getMedalStatus(){
 }
 
 /* =========================================================
-   周称号系统
-   - 每周根据数据生成 1 个独特称号
-   - 由「形容词 A + 形容词 B + 基础名词」三段拼接
-   - 50+ 种组合
+   周称号系统 v2 - 重构
+   思路：
+   - 每周根据数据找出 1 个「主导维度」决定主角色（名词）
+   - 找 1 个「修饰维度」决定前缀形容词
+   - 词库精炼，强调"角色感"，加入烟酒维度
    ========================================================= */
 
-// 称号词库
-const TITLE_LIB = {
-  // 维度评分函数 → 返回 'high'/'mid'/'low'/'none'
+// 维度评分：返回 'high'/'mid'/'low'/'none'
+const DIM_SCORE = {
   ejac: (rs) => {
     const n = rs.filter(r=>r.type==='jerk'||r.type==='sex').length;
     if(n>=8) return 'high';
@@ -1647,23 +1762,9 @@ const TITLE_LIB = {
     if(n>=1) return 'low';
     return 'none';
   },
-  sex: (rs) => {
-    const n = rs.filter(r=>r.type==='sex').length;
-    if(n>=4) return 'high';
-    if(n>=2) return 'mid';
-    if(n>=1) return 'low';
-    return 'none';
-  },
-  jerk: (rs) => {
-    const n = rs.filter(r=>r.type==='jerk').length;
-    if(n>=7) return 'high';
-    if(n>=3) return 'mid';
-    if(n>=1) return 'low';
-    return 'none';
-  },
   sport: (rs) => {
     const n = rs.filter(r=>r.type==='sport').length;
-    if(n>=5) return 'high';
+    if(n>=4) return 'high';
     if(n>=2) return 'mid';
     if(n>=1) return 'low';
     return 'none';
@@ -1672,142 +1773,158 @@ const TITLE_LIB = {
     const ss = rs.filter(r=>r.type==='sleep');
     if(!ss.length) return 'none';
     const avg = ss.reduce((a,r)=>a+(r.data.hours||calcSleepHours(r.data.bedtime,r.data.waketime)||0),0)/ss.length;
-    if(avg>=8) return 'high';
+    if(avg>=7.5 && ss.length>=4) return 'high';
     if(avg>=6.5) return 'mid';
     return 'low';
   },
   mood: (rs) => {
     const ms = rs.filter(r=>r.type==='mood');
     if(!ms.length) return 'none';
-    const happy = ms.filter(r=>(r.data.mood||'').includes('开心')||(r.data.mood||'').includes('平静')).length / ms.length;
-    if(happy>=0.7) return 'high';
-    if(happy>=0.4) return 'mid';
+    const happyR = ms.filter(r=>(r.data.mood||'').includes('开心')||(r.data.mood||'').includes('平静')).length / ms.length;
+    if(happyR>=0.7) return 'high';
+    if(happyR>=0.4) return 'mid';
     return 'low';
   },
-  night: (rs) => {
-    const total = rs.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
-    if(total===0) return 'none';
-    if(total<=2) return 'low';
-    if(total<=5) return 'mid';
-    return 'high';
+  smoke: (rs) => {
+    const total = rs.filter(r=>r.type==='smoke').reduce((a,r)=>a+(r.data.count||0),0);
+    if(total>=30) return 'high';
+    if(total>=10) return 'mid';
+    if(total>=1) return 'low';
+    return 'none';
   },
-  pee: (rs) => {
-    const ps = rs.filter(r=>r.type==='pee');
-    if(!ps.length) return 'none';
-    const abn = ps.filter(r=>peeRisk(r.data).level!=='正常').length;
-    if(abn===0) return 'high'; // 全正常 = high（健康）
-    if(abn/ps.length<0.4) return 'mid';
+  drink: (rs) => {
+    const drinks = rs.filter(r=>r.type==='drink');
+    if(!drinks.length) return 'none';
+    const heavyN = drinks.filter(r=>(r.data.drunk||0)>=3).length;
+    if(heavyN>=2) return 'high';     // 多次喝大
+    if(drinks.length>=4 || heavyN>=1) return 'mid'; // 经常喝或喝过一次大
     return 'low';
   }
 };
 
-// 形容词池：每个维度每个等级有多个形容词，组合起来变化丰富
-const ADJ_LIB = {
-  ejac: {
-    high: ['激情澎湃的', '欲火焚身的', '猛男附体的', '永动机的'],
-    mid:  ['活力满满的', '规律节奏的', '张弛有度的'],
-    low:  ['偶尔小酌的', '细水长流的', '佛系释放的'],
-    none: ['坐怀不乱的', '禁欲修行的', '清心寡欲的']
-  },
-  sport: {
-    high: ['运动健将的', '肌肉饱满的', '荷尔蒙爆棚的', '铁人三项的'],
-    mid:  ['热爱跑跳的', '身手矫健的', '坚持锻炼的'],
-    low:  ['偶尔挪挪的', '勉强动动的', '半推半就的'],
-    none: ['沙发瘫痪的', '宅家躺平的', '葛优同款的']
-  },
-  sleep: {
-    high: ['睡眠大师的', '梦境深沉的', '嗜睡如命的', '元气补满的'],
-    mid:  ['作息正常的', '够用就好的', '中规中矩的'],
-    low:  ['熬夜冠军的', '失眠选手的', '黑眼圈代言人']
-  },
-  mood: {
-    high: ['天天开心的', '阳光普照的', '快乐源泉的', '心如止水的'],
-    mid:  ['情绪稳定的', '波澜不惊的', '看淡一切的'],
-    low:  ['emo 患者的', '压力山大的', '内耗严重的', '小作精的']
-  },
-  night: {
-    none: ['一觉到天亮的', '睡神级别的'],
-    low:  ['偶尔起夜的', '小膀胱预警的'],
-    mid:  ['夜尿频频的', '前列腺呼救的'],
-    high: ['一夜无眠的', '厕所常客的']
-  },
-  pee: {
-    high: ['膀胱健康的', '前列腺优等生的', '排尿如歌的'],
-    mid:  ['一切尚可的', '偶有警报的'],
-    low:  ['身体警示中的', '需要关爱的']
-  }
+// 主角色：根据"主导维度+等级"匹配。优先级 high > none(特殊禁欲/戒烟戒酒) > low/mid
+const ROLE_LIB = {
+  ejac_high:  [{name:'🐺 荷尔蒙猛男', desc:'本周排精频次满分'},
+               {name:'🔥 性福发电机', desc:'激情澎湃的一周'},
+               {name:'💥 欲望小马达', desc:'活力四射根本停不下来'}],
+  ejac_low:   [{name:'🌱 偶尔放纵学员', desc:'本周浅尝辄止'},
+               {name:'🍃 细水长流派', desc:'低频但稳定'}],
+  ejac_none:  [{name:'🧘 禅心居士', desc:'本周完美禁欲'},
+               {name:'☁️ 浮云老仙', desc:'清心寡欲修行中'},
+               {name:'🦌 戒色俱乐部 VIP', desc:'本周一滴未漏'}],
+
+  sport_high: [{name:'🏋️ 健身达人', desc:'本周运动 4+ 次'},
+               {name:'⚡️ 能量战士', desc:'体能输出爆表'},
+               {name:'🦁 猛兽体能', desc:'练得跟野兽一样'}],
+  sport_low:  [{name:'🚶 散步爱好者', desc:'勉强动了几下'}],
+  sport_none: [{name:'🛋️ 沙发瘫痪',  desc:'本周一次没动'},
+               {name:'🦥 树懒先生', desc:'葛优同款躺平'},
+               {name:'🛌 床上 CEO', desc:'今日宜：不动'}],
+
+  sleep_high: [{name:'😴 梦乡长老', desc:'本周作息王者'},
+               {name:'🌙 月光骑士', desc:'优质睡眠捍卫者'},
+               {name:'💤 睡眠艺术家', desc:'每天 7.5h 起步'}],
+  sleep_low:  [{name:'🦉 夜猫子', desc:'熬夜冠军候选'},
+               {name:'🌚 朋克养生派', desc:'熬最深的夜，敷最贵的面膜'}],
+
+  mood_high:  [{name:'🐶 开心小狗', desc:'快乐源泉本人'},
+               {name:'🌈 彩虹捕手', desc:'每天都阳光普照'},
+               {name:'☀️ 治愈系男孩', desc:'看到你心情就好'}],
+  mood_low:   [{name:'🥲 emo 文艺青年', desc:'本周阴雨绵绵'},
+               {name:'🌧️ 内耗工程师', desc:'压力山大状态中'},
+               {name:'☁️ 小作精',     desc:'情绪有点起伏哦'}],
+
+  smoke_high: [{name:'💨 资深老烟枪', desc:'本周 30+ 支'},
+               {name:'🚬 二手烟代言人', desc:'走到哪薰到哪'},
+               {name:'🔥 烟囱模式启动', desc:'吞云吐雾大师'}],
+  smoke_mid:  [{name:'🚬 半包党', desc:'每周中等量'}],
+  smoke_low:  [{name:'🚬 偶尔来一根', desc:'社交型烟民'}],
+  smoke_none: [{name:'🌿 戒烟标兵', desc:'本周一根未抽'}],
+
+  drink_high: [{name:'🍻 酒桌灵魂', desc:'本周多次喝大'},
+               {name:'🥂 千杯不倒', desc:'酒量界传奇'},
+               {name:'🍺 醉生梦死侠', desc:'断片是基本操作'}],
+  drink_mid:  [{name:'🍷 微醺艺术家', desc:'喝得恰到好处'},
+               {name:'🥃 小酌怡情派', desc:'酒量在线情绪到位'}],
+  drink_low:  [{name:'🍵 浅尝辄止学员', desc:'尝了几口就够了'}],
+  drink_none: [{name:'💧 滴酒不沾', desc:'本周完美戒酒'}],
+
+  // 兜底
+  default: [{name:'👤 神秘旅人', desc:'数据还不够多'},
+            {name:'🌟 健康探索者', desc:'刚开始记录'},
+            {name:'🐱 摸鱼大师', desc:'随性摸鱼一周'},
+            {name:'🍃 佛系玩家', desc:'啥都无所谓'},
+            {name:'🎲 随机生活家', desc:'生活很随机'}]
 };
 
-// 基础名词池：根据"主导维度"挑选
-const NOUN_LIB = {
-  ejac_high: ['🐺 荷尔蒙猛男', '🔥 性福发电机', '💥 欲望小马达'],
-  ejac_low:  ['🧘 禅心居士', '🌱 清修小菜鸟', '☁️ 浮云老仙'],
-  sport_high:['🏋️ 健身达人', '⚡️ 能量战士', '🦁 猛兽体能'],
-  sport_low: ['🛋️ 快乐肥宅', '🦥 树懒先生', '🛌 沙发居民'],
-  sleep_high:['😴 梦乡长老', '🌙 月光骑士', '💤 睡眠艺术家'],
-  sleep_low: ['🦉 夜猫子'],
-  mood_high: ['🐶 开心小狗', '🌈 彩虹捕手', '☀️ 快乐源体', '🐬 治愈系男孩'],
-  mood_low:  ['🥲 emo 文艺青年', '🌧️ 阴天少年', '☁️ 内耗工程师'],
-  night_high:['🚽 起夜健将', '⏰ 半夜闹钟'],
-  pee_low:   ['🩺 待复诊学员', '⚠️ 健康预警员'],
-  pee_high:  ['💧 排尿模范生', '🌊 流畅小专家'],
-  // 万能兜底
-  default:   ['👤 神秘旅人', '🌟 健康探索者', '🎲 随机生活家', '🐱 摸鱼大师', '🍃 佛系玩家']
+// 形容词修饰：根据次要维度+等级
+const PREFIX_LIB = {
+  ejac_high:  ['激情澎湃的', '欲火焚身的', '荷尔蒙爆棚的'],
+  ejac_low:   ['偶有冲动的', '佛系释放的'],
+  ejac_none:  ['坐怀不乱的', '清心寡欲的'],
+  sport_high: ['肌肉饱满的', '运动健将的', '能量充沛的'],
+  sport_none: ['沙发瘫的',  '懒得动的'],
+  sleep_high: ['睡眠充足的', '元气满满的'],
+  sleep_low:  ['熬夜成性的', '黑眼圈的', '失眠选手的'],
+  mood_high:  ['天天开心的', '阳光普照的'],
+  mood_low:   ['情绪低落的', 'emo 中的', '内耗严重的'],
+  smoke_high: ['烟不离手的', '吞云吐雾的'],
+  smoke_low:  ['偶尔点根的'],
+  smoke_none: ['无烟一身轻的'],
+  drink_high: ['酒杯不停的', '逢酒必醉的'],
+  drink_mid:  ['微醺漫游的'],
+  drink_none: ['滴酒不沾的']
 };
 
 function generateWeeklyTitle(rs){
-  // 计算每个维度等级
+  // 1) 算每个维度的等级
   const dims = {};
-  Object.keys(TITLE_LIB).forEach(k=>{
-    dims[k] = TITLE_LIB[k](rs);
-  });
+  Object.keys(DIM_SCORE).forEach(k=>{ dims[k] = DIM_SCORE[k](rs); });
 
-  // 找两个最强维度作为形容词来源（优先 high，再 low / none）
-  const order = ['ejac','sport','sleep','mood','night','pee'];
-  const candidates = order.filter(k=>dims[k]!=='none' || k==='ejac'); // ejac 即使 none 也有形容词
-  // 排序：high/low 优先，mid 次之
-  const sorted = candidates.sort((a,b)=>{
-    const score = (l)=>{
-      if(l==='high'||l==='low') return 2;
-      if(l==='none') return 1.5;
-      return 1;
-    };
-    return score(dims[b])-score(dims[a]);
-  });
+  // 2) 评估"突出度"：极端值（high 或带特殊意义的 none）优先级高
+  const standoutness = (dim, level) => {
+    if(level==='high') return 3;
+    if(level==='none' && (dim==='ejac'||dim==='smoke'||dim==='drink')) return 2.5; // "完全不做"也是亮点
+    if(level==='low') return 1.5;
+    if(level==='mid') return 1;
+    return 0;
+  };
+  // 排序找主导维度（数据量很少时，多个维度都是 none，会回退到 default）
+  const sorted = Object.keys(dims).sort((a,b)=>standoutness(b,dims[b])-standoutness(a,dims[a]));
 
-  // 取前 2 个不同维度做形容词
-  const adj1Dim = sorted[0] || 'mood';
-  const adj2Dim = sorted[1] || 'sport';
-  const adj1Pool = (ADJ_LIB[adj1Dim] && ADJ_LIB[adj1Dim][dims[adj1Dim]]) || [''];
-  const adj2Pool = (ADJ_LIB[adj2Dim] && ADJ_LIB[adj2Dim][dims[adj2Dim]]) || [''];
+  const seed = weekKey();
+  const pickFrom = (pool, salt) => pool[hash(seed+salt) % pool.length];
 
-  // 用本周的随机种子稳定选词（同一周生成的称号相同）
-  const seed = weekKey(); // 比如 "2026-W18"
-  const r1 = hash(seed+'a') % adj1Pool.length;
-  const r2 = hash(seed+'b') % adj2Pool.length;
-  const adj1 = adj1Pool[r1];
-  const adj2 = adj2Pool[r2];
+  // 3) 选主角色
+  const mainDim = sorted[0];
+  let roleKey = mainDim + '_' + dims[mainDim];
+  if(!ROLE_LIB[roleKey] || standoutness(mainDim, dims[mainDim]) < 1.5) {
+    roleKey = 'default';
+  }
+  const roleObj = pickFrom(ROLE_LIB[roleKey], 'role');
 
-  // 选名词：根据最强维度+等级
-  let nounKey = adj1Dim + '_' + dims[adj1Dim];
-  if(!NOUN_LIB[nounKey] || dims[adj1Dim]==='mid') nounKey = 'default';
-  const nounPool = NOUN_LIB[nounKey];
-  const r3 = hash(seed+'c') % nounPool.length;
-  const noun = nounPool[r3];
-
-  // 拼接：避免重复同一形容词
-  let prefix;
-  if(adj1 === adj2 || !adj2) prefix = adj1;
-  else prefix = adj1 + adj2;
+  // 4) 选修饰前缀（来自次要维度，避免和主角色重复维度）
+  let prefix = '';
+  let prefixDim = null, prefixLevel = null;
+  for(let i=1; i<sorted.length; i++){
+    const d = sorted[i];
+    if(d === mainDim) continue;
+    const key = d + '_' + dims[d];
+    if(PREFIX_LIB[key]){
+      prefix = pickFrom(PREFIX_LIB[key], 'prefix');
+      prefixDim = d; prefixLevel = dims[d];
+      break;
+    }
+  }
 
   return {
-    title: prefix + noun,
+    title: prefix + roleObj.name,
+    desc: roleObj.desc,
     weekKey: seed,
     dims,
     breakdown: {
-      adj1: {dim:adj1Dim, level:dims[adj1Dim], text:adj1},
-      adj2: {dim:adj2Dim, level:dims[adj2Dim], text:adj2},
-      noun
+      mainDim, mainLevel: dims[mainDim], roleName: roleObj.name, roleDesc: roleObj.desc,
+      prefixDim, prefixLevel, prefixText: prefix
     }
   };
 }
@@ -1860,21 +1977,25 @@ function renderAchievePage(){
   const t = generateWeeklyTitle(wkRecs);
   const tc = document.getElementById('titleCard');
   if(tc){
+    let breakdownHtml = `<div>🎭 主角：<b>${t.breakdown.roleName}</b> — ${t.breakdown.roleDesc}</div>`;
+    breakdownHtml += `<div style="margin-top:6px;">📌 来自「${dimName(t.breakdown.mainDim)}」维度（${levelText(t.breakdown.mainLevel)}）</div>`;
+    if(t.breakdown.prefixText){
+      breakdownHtml += `<div style="margin-top:6px;">✨ 修饰：<b>${t.breakdown.prefixText}</b> — 来自「${dimName(t.breakdown.prefixDim)}」</div>`;
+    }
     tc.innerHTML = `
       <div style="text-align:center;">
         <div style="font-size:11px;color:var(--text-3);margin-bottom:6px;">本周称号 · ${weekKey()}</div>
-        <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1.3;margin:8px 0;">${t.title}</div>
+        <div style="font-size:26px;font-weight:700;color:var(--text);line-height:1.3;margin:8px 0;">${t.title}</div>
         <div style="font-size:12px;color:var(--text-3);margin-top:6px;">基于本周 ${wkRecs.length} 条记录生成</div>
       </div>
       <div style="margin-top:14px;padding:12px;background:#f7f8fc;border-radius:14px;font-size:12px;line-height:1.7;color:var(--text-2);">
-        <div>📊 <b>${t.breakdown.adj1.text || '—'}</b> 来自「${dimName(t.breakdown.adj1.dim)}」表现</div>
-        <div>📊 <b>${t.breakdown.adj2.text || '—'}</b> 来自「${dimName(t.breakdown.adj2.dim)}」表现</div>
+        ${breakdownHtml}
       </div>
       <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--text-3);">每周一更新 · 截图分享给朋友吧</div>
     `;
   }
 
-  // 称号历史（最近 8 周）
+  // 称号历史
   const history = getTitleHistory();
   const cntEl = document.getElementById('titleCount');
   if(cntEl) cntEl.textContent = history.length + ' 个';
@@ -1886,7 +2007,7 @@ function renderAchievePage(){
       hRow.innerHTML = history.slice(0,8).map(h=>`
         <div onclick="viewTitle('${h.weekKey}')" style="flex:0 0 160px;background:${h.isCurrent?'linear-gradient(135deg,#fef3c7,#fff)':'#fff'};border:${h.isCurrent?'2px solid #f59e0b':'1px solid var(--line)'};border-radius:14px;padding:12px;cursor:pointer;text-align:center;">
           <div style="font-size:10px;color:var(--text-3);">${h.weekKey}${h.isCurrent?' · 本周':''}</div>
-          <div style="font-size:14px;font-weight:600;margin-top:6px;line-height:1.3;">${h.title}</div>
+          <div style="font-size:13px;font-weight:600;margin-top:6px;line-height:1.3;">${h.title}</div>
         </div>
       `).join('');
     }
@@ -1899,7 +2020,10 @@ function renderAchievePage(){
 }
 
 function dimName(d){
-  return {ejac:'排精节律', sport:'运动', sleep:'睡眠', mood:'心情', night:'夜尿', pee:'泌尿', sex:'亲密', jerk:'解压'}[d] || d;
+  return {ejac:'排精节律', sport:'运动', sleep:'睡眠', mood:'心情', smoke:'抽烟', drink:'喝酒'}[d] || d;
+}
+function levelText(l){
+  return {high:'高频', mid:'中等', low:'低频', none:'未做'}[l] || l;
 }
 
 function viewTitle(wk){
@@ -1908,13 +2032,12 @@ function viewTitle(wk){
   showModal(`
     <div style="text-align:center;padding:10px 0;">
       <div style="font-size:11px;color:var(--text-3);">${wk}</div>
-      <div style="font-size:30px;font-weight:700;margin:14px 0;line-height:1.3;">${t.title}</div>
-      <p style="color:var(--text-3);font-size:12px;">基于本周 ${wkRecs.length} 条记录</p>
+      <div style="font-size:28px;font-weight:700;margin:14px 0;line-height:1.3;">${t.title}</div>
+      <p style="color:var(--text-3);font-size:12px;">${t.desc} · 基于本周 ${wkRecs.length} 条记录</p>
     </div>
     <div style="background:#f7f8fc;border-radius:12px;padding:14px;font-size:13px;line-height:1.8;">
-      <div>📊 「${dimName(t.breakdown.adj1.dim)}」→ <b>${t.breakdown.adj1.text}</b></div>
-      <div>📊 「${dimName(t.breakdown.adj2.dim)}」→ <b>${t.breakdown.adj2.text}</b></div>
-      <div>🎭 主题角色：<b>${t.breakdown.noun}</b></div>
+      <div>🎭 主角来自：「${dimName(t.breakdown.mainDim)}」(${levelText(t.breakdown.mainLevel)})</div>
+      ${t.breakdown.prefixText?`<div>✨ 修饰来自：「${dimName(t.breakdown.prefixDim)}」(${levelText(t.breakdown.prefixLevel)})</div>`:''}
     </div>
     <div class="close-line"><button onclick="closeModal()" style="background:var(--primary);color:#fff;">知道了</button></div>
   `);
@@ -1968,14 +2091,15 @@ function renderLifetimeStats(){
    个人中心页渲染
    ========================================================= */
 function renderProfilePage(){
-  // 状态
+  // 用户名 + 状态
+  document.getElementById('profileName').innerHTML = getUsername() + ' <span style="font-size:12px;font-weight:400;opacity:.7;cursor:pointer;" onclick="promptUsername()">✏️ 改名</span>';
   let status = '仅本地模式';
   if(CURRENT_USER && CURRENT_USER.email){
     status = CURRENT_USER.email + (CLOUD_OK?' · 已同步':' · 离线');
   }
   document.getElementById('profileStatus').textContent = status;
 
-  // 健康提示（复用同一逻辑）
+  // 健康提示
   if(window._tipsCache && window._tipsCache.length){
     const idx = window._tipIdx || 0;
     document.getElementById('profileTipText').innerHTML = window._tipsCache[idx % window._tipsCache.length].emoji + ' ' + window._tipsCache[idx % window._tipsCache.length].text;
@@ -1983,7 +2107,7 @@ function renderProfilePage(){
     renderSmartTip();
   }
 
-  // 文章（重用 ARTICLES 前 3 篇）
+  // 文章
   const ar = document.getElementById('profileArticles');
   if(ar){
     ar.innerHTML = ARTICLES.slice(0,3).map((a,i)=>`
@@ -2000,11 +2124,12 @@ function renderProfilePage(){
 
   // 设置项
   const items = [];
+  items.push({emoji:'✏️', label:'修改昵称', action:'promptUsername()'});
   if(CURRENT_USER){
     items.push({emoji:'🔄', label:'重新同步云端', action:'syncFromCloud()'});
     items.push({emoji:'🚪', label:'退出登录', action:'logoutUser()', danger:true});
   } else {
-    items.push({emoji:'☁️', label:'登录以同步云端', action:'closeModal();document.getElementById(\'authPage\').classList.remove(\'hide\');'});
+    items.push({emoji:'☁️', label:'登录以同步云端', action:'document.getElementById(\'authPage\').classList.remove(\'hide\');'});
   }
   items.push({emoji:'📤', label:'导出我的数据 (JSON)', action:'exportData()'});
   items.push({emoji:'🗑️', label:'清空本地数据', action:'resetData()', danger:true});
@@ -2023,22 +2148,23 @@ function renderProfilePage(){
 
 function renderMedals(){
   const list = getMedalStatus();
-  const unlockedCount = list.filter(m=>m.unlocked).length;
+  const unlocked = list.filter(m=>m.unlocked);
   const cntEl = document.getElementById('achieveMedalCount');
-  if(cntEl) cntEl.textContent = `${unlockedCount}/${list.length}`;
-  const sorted = [...list].sort((a,b)=>{
-    if(a.unlocked!==b.unlocked) return a.unlocked?-1:1;
-    const ord = {easy:0, mid:1, hard:2};
-    return ord[a.diff]-ord[b.diff];
-  });
+  if(cntEl) cntEl.textContent = `${unlocked.length}/${list.length}`;
   const rowEl = document.getElementById('achieveMedalRow');
-  if(rowEl) rowEl.innerHTML = sorted.slice(0,8).map(m=>`
-    <div class="medal-card ${m.unlocked?'unlocked':''}" onclick="viewMedal('${m.id}')">
-      <span class="em">${m.emoji}</span>
-      <div class="nm">${m.name}</div>
-      <div class="lk">${m.unlocked?'✓ 已获得':'未解锁'}</div>
-    </div>
-  `).join('');
+  if(rowEl){
+    if(unlocked.length===0){
+      rowEl.innerHTML = `<div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:13px;width:100%;">还没有勋章哦，开始记录就能解锁！<br><span style="color:var(--primary);cursor:pointer;font-size:12px;" onclick="openMedals()">查看全部 ${list.length} 枚 ›</span></div>`;
+    } else {
+      rowEl.innerHTML = unlocked.slice(0,12).map(m=>`
+        <div class="medal-card unlocked" onclick="viewMedal('${m.id}')">
+          <span class="em">${m.emoji}</span>
+          <div class="nm">${m.name}</div>
+          <div class="lk">✓ 已获得</div>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 function viewMedal(id){
