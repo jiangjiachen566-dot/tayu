@@ -255,10 +255,14 @@
 
   .big-chart{margin:0 16px 12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;}
   .big-chart h4{margin:0 0 14px;font-size:13px;color:var(--ink-3);font-weight:500;letter-spacing:.5px;text-transform:uppercase;}
-  #weekChart{width:100% !important;height:200px !important;}
-  #pieChart{width:100% !important;height:200px !important;}
-  #radarChart{width:100% !important;height:300px !important;}
-  #trendChart{width:100% !important;height:200px !important;}
+  /* canvas 容器：通过父级高度控制，不直接限制 canvas，避免 CSS 拉伸导致文字变形 */
+  .chart-wrap{position:relative;width:100%;}
+  .chart-wrap.h-radar{height:300px;}
+  .chart-wrap.h-trend{height:200px;}
+  .chart-wrap.h-mini{height:140px;}
+  .chart-wrap.h-week{height:200px;}
+  .chart-wrap.h-pie{height:200px;}
+  .chart-wrap canvas{display:block;}
   .trend-chips .tchip{padding:6px 12px;border-radius:14px;background:#f4f6fb;color:var(--text-2);font-size:12px;cursor:pointer;border:1px solid transparent;transition:.15s;}
   .trend-chips .tchip.on{background:var(--primary);color:#fff;border-color:var(--primary);}
   /* 热力图 */
@@ -536,7 +540,7 @@
       </div>
       <div class="big-chart">
         <h4>🩺 健康维度评分 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;">每维 0-100，越大越健康</span></h4>
-        <div style="padding:0 8px;"><canvas id="radarChart"></canvas></div>
+        <div class="chart-wrap h-radar"><canvas id="radarChart"></canvas></div>
         <div id="radarLegend" style="font-size:11px;color:var(--text-3);line-height:1.6;margin-top:8px;padding:8px 10px;background:#f7f8fc;border-radius:10px;"></div>
       </div>
       <div class="big-chart">
@@ -544,7 +548,7 @@
           <h4 style="margin:0;">📈 趋势分析 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;" id="trendSubtitle">选择维度查看趋势</span></h4>
         </div>
         <div class="trend-chips" id="trendChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
-        <canvas id="trendChart"></canvas>
+        <div class="chart-wrap h-trend"><canvas id="trendChart"></canvas></div>
       </div>
       <div class="insight">
         <h4>🔍 智能洞察</h4>
@@ -2881,6 +2885,9 @@ function initMiniChart(){
       fill:true, tension:.4, pointBackgroundColor:'#3b6cff', pointRadius: miniRange==='week'?4:2
     }]},
     options:{
+      responsive: true,
+      maintainAspectRatio: false,
+      devicePixelRatio: window.devicePixelRatio || 2,
       plugins:{legend:{display:false}},
       scales:{ y:{display:false,beginAtZero:true},
         x:{grid:{display:false}, ticks:{font:{size:10},color:'#9aa3b6', maxTicksLimit:7}}}
@@ -3036,6 +3043,9 @@ function renderRadar(){
       ]
     },
     options:{
+      responsive: true,
+      maintainAspectRatio: false,
+      devicePixelRatio: window.devicePixelRatio || 2,
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+' 分'}}
@@ -3131,6 +3141,9 @@ function renderTrend(){
       pointBorderColor:'#fff', pointBorderWidth:2, borderWidth:2.5
     }]},
     options:{
+      responsive: true,
+      maintainAspectRatio: false,
+      devicePixelRatio: window.devicePixelRatio || 2,
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=>dim.label+': '+c.raw+(dim.isAvg?' h':' 次')}}
