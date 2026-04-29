@@ -449,6 +449,8 @@
         </div>
         <div style="font-size:11px;color:var(--ink-3);text-align:right;letter-spacing:1px;text-transform:uppercase;font-weight:500;" id="todayDate"></div>
       </div>
+      <!-- 本周称号 -->
+      <div id="homeTitleHint"></div>
       <div class="health-card">
         <div class="score">
           <div class="label">本周健康指数</div>
@@ -460,9 +462,6 @@
     </div>
 
     <div class="stats-row" id="statsRow"></div>
-
-    <!-- 本周称号小卡 -->
-    <div id="homeTitleHint" style="margin:0 16px;"></div>
 
     <div class="section-title"><h3>📝 今日记录</h3><span class="more" onclick="switchTab('data')">查看更多 ›</span></div>
     <div class="recent-card" id="recentList"></div>
@@ -1493,20 +1492,21 @@ function renderHome(){
 
   // 首页本周称号简卡（点击跳到成就页）
   const wkRecs = recordsInWeek(weekKey());
-  if(wkRecs.length>0){
-    const t = generateWeeklyTitle(wkRecs);
-    const el = document.getElementById('homeTitleHint');
-    if(el) el.innerHTML = `
-      <div onclick="switchTab('achieve')" style="margin-top:16px;background:linear-gradient(135deg,#fef3c7,#fff);border:1px solid #fde68a;border-radius:18px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-size:11px;color:#92400e;">🏆 本周称号</div>
-          <div style="font-size:16px;font-weight:700;margin-top:4px;line-height:1.3;">${t.title}</div>
-        </div>
-        <span style="color:#92400e;font-size:18px;">›</span>
-      </div>`;
-  } else {
-    const el = document.getElementById('homeTitleHint');
-    if(el) el.innerHTML = '';
+  const elTitle = document.getElementById('homeTitleHint');
+  if(elTitle){
+    if(wkRecs.length>0){
+      const t = generateWeeklyTitle(wkRecs);
+      elTitle.innerHTML = `
+        <div onclick="switchTab('achieve')" style="margin-top:20px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:.15s;">
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:10px;color:var(--ink-3);letter-spacing:1.2px;text-transform:uppercase;font-weight:500;">🏆 本周称号</div>
+            <div style="font-size:15px;font-weight:600;margin-top:6px;line-height:1.3;color:var(--ink);">${t.title}</div>
+          </div>
+          <span style="color:var(--ink-3);font-size:18px;flex-shrink:0;">›</span>
+        </div>`;
+    } else {
+      elTitle.innerHTML = '';
+    }
   }
 }
 
@@ -2133,21 +2133,27 @@ function renderLifetimeStats(){
   const total = records.length;
   const days = new Set(records.map(r=>r.date)).size;
   const cnt = key => records.filter(r=>r.type===key).length;
+  const smokeTotal = records.filter(r=>r.type==='smoke').reduce((a,r)=>a+(r.data.count||0),0);
+  const drinkTotal = cnt('drink');
+  const drunkBig = records.filter(r=>r.type==='drink' && (r.data.drunk||0)>=3).length;
   const stats = [
-    {emoji:'📝', label:'累计记录', val:total, unit:'条', color:'#3b6cff'},
-    {emoji:'📅', label:'打卡天数', val:days, unit:'天', color:'#22c55e'},
-    {emoji:'✋', label:'解压次数', val:cnt('jerk'), unit:'次', color:'#ff7a59'},
-    {emoji:'❤️', label:'亲密次数', val:cnt('sex'), unit:'次', color:'#ec4899'},
-    {emoji:'🏃', label:'运动次数', val:cnt('sport'), unit:'次', color:'#22c55e'},
-    {emoji:'😴', label:'睡眠记录', val:cnt('sleep'), unit:'次', color:'#06b6d4'}
+    {emoji:'📝', label:'累计记录', val:total, unit:'条', color:'var(--ink)'},
+    {emoji:'📅', label:'打卡天数', val:days, unit:'天', color:'var(--c-sport)'},
+    {emoji:'✋', label:'解压次数', val:cnt('jerk'), unit:'次', color:'var(--c-jerk)'},
+    {emoji:'❤️', label:'亲密次数', val:cnt('sex'), unit:'次', color:'var(--c-sex)'},
+    {emoji:'🏃', label:'运动次数', val:cnt('sport'), unit:'次', color:'var(--c-sport)'},
+    {emoji:'😴', label:'睡眠记录', val:cnt('sleep'), unit:'次', color:'var(--c-sleep)'},
+    {emoji:'🚬', label:'累计抽烟', val:smokeTotal, unit:'支', color:'var(--c-smoke)'},
+    {emoji:'🍺', label:'累计饮酒', val:drinkTotal, unit:'次', color:'var(--c-drink)', extra:drunkBig>0?'其中 '+drunkBig+' 次喝大':null}
   ];
   const el = document.getElementById('lifetimeStats');
   if(el){
     el.innerHTML = stats.map(s=>`
-      <div style="background:#fff;border-radius:16px;padding:14px;box-shadow:var(--shadow);">
-        <div style="font-size:24px;">${s.emoji}</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:6px;">${s.label}</div>
-        <div style="font-size:20px;font-weight:700;color:${s.color};margin-top:2px;">${s.val} <span style="font-size:11px;font-weight:400;color:var(--text-3);">${s.unit}</span></div>
+      <div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;">
+        <div style="font-size:22px;">${s.emoji}</div>
+        <div style="font-size:11px;color:var(--ink-3);margin-top:8px;letter-spacing:.3px;">${s.label}</div>
+        <div style="font-size:22px;font-weight:700;color:${s.color};margin-top:4px;letter-spacing:-.3px;font-feature-settings:'tnum';">${s.val} <span style="font-size:11px;font-weight:400;color:var(--ink-3);">${s.unit}</span></div>
+        ${s.extra?`<div style="font-size:10px;color:var(--ink-3);margin-top:4px;">${s.extra}</div>`:''}
       </div>
     `).join('');
   }
