@@ -1406,34 +1406,43 @@ function renderHome(){
   const wk = weekRecords();
   const cnt = key => wk.filter(r=>r.type===key).length;
 
-  // ===== 动态统计卡：只显示有过记录的类型 =====
+  // ===== 动态统计卡：本周维度，只显示有过记录的类型 =====
+  // 注意：所有数字都是"本周累计总量"，不再有日均
   const allTypesUsed = new Set(records.map(r=>r.type));
   const statCards = [];
   if(allTypesUsed.has('jerk')) statCards.push({
-    cls:'', t:'本周解压', badge:'+'+cnt('jerk'), num:cnt('jerk'), unit:'次', sub:'频率监测', type:'jerk'
+    cls:'', t:'本周解压', badge:cnt('jerk')>=7?'偏频':cnt('jerk')>=4?'适度':cnt('jerk')>=1?'轻松':'禅心', num:cnt('jerk'), unit:'次', sub:'本周累计', type:'jerk'
   });
   if(allTypesUsed.has('sex')) statCards.push({
-    cls:'c-a', t:'本周亲密', badge:'规律', num:cnt('sex'), unit:'次', sub:'伴侣关系', type:'sex'
+    cls:'c-a', t:'本周亲密', badge:cnt('sex')>=3?'激情':cnt('sex')>=1?'规律':'低频', num:cnt('sex'), unit:'次', sub:'本周累计', type:'sex'
   });
   if(allTypesUsed.has('night')){
     const nightTotal = wk.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
-    statCards.push({cls:'c-b', t:'夜间起夜', badge:nightTotal>=14?'偏多':'正常', num:(nightTotal/7).toFixed(1), unit:'次', sub:'日均', type:'night'});
+    statCards.push({cls:'c-b', t:'本周起夜', badge:nightTotal===0?'安睡':nightTotal<=3?'偶发':nightTotal<=7?'关注':'频繁', num:nightTotal, unit:'次', sub:'本周累计', type:'night'});
   }
   if(allTypesUsed.has('pee')){
     const abn = wk.filter(r=>r.type==='pee' && peeRisk(r.data).level!=='正常').length;
-    statCards.push({cls:'c-c', t:'排尿异常', badge:abn>0?'关注':'正常', num:abn, unit:'次', sub:abn>0?'建议补水':'状况良好', type:'pee'});
+    const total = wk.filter(r=>r.type==='pee').length;
+    statCards.push({cls:'c-c', t:'本周排尿', badge:abn>0?'异常':'正常', num:abn, unit:total>0?'/'+total:'次', sub:abn>0?'异常次数':'全部正常', type:'pee'});
   }
   if(allTypesUsed.has('sport')) statCards.push({
-    cls:'', t:'本周运动', badge:cnt('sport')>=3?'达标':'加油', num:cnt('sport'), unit:'次', sub:'坚持就好', type:'sport'
+    cls:'', t:'本周运动', badge:cnt('sport')>=3?'达标':cnt('sport')>=1?'加油':'缺席', num:cnt('sport'), unit:'次', sub:'本周累计', type:'sport'
   });
   if(allTypesUsed.has('sleep')){
-    const sleepRecs = wk.filter(r=>r.type==='sleep');
-    const avgH = sleepRecs.length ? (sleepRecs.reduce((a,r)=>a+(r.data.hours||calcSleepHours(r.data.bedtime,r.data.waketime)||0),0)/sleepRecs.length).toFixed(1) : 0;
-    statCards.push({cls:'c-a', t:'平均睡眠', badge:avgH>=7?'良好':'不足', num:avgH, unit:'h', sub:'本周日均', type:'sleep'});
+    statCards.push({cls:'c-a', t:'本周睡眠', badge:cnt('sleep')>=5?'规律':'稀疏', num:cnt('sleep'), unit:'次', sub:'本周记录', type:'sleep'});
   }
   if(allTypesUsed.has('mood')){
-    const happyN = wk.filter(r=>r.type==='mood' && (r.data.mood||'').includes('开心')).length;
-    statCards.push({cls:'c-b', t:'好心情', badge:happyN>=3?'阳光':'加油', num:happyN, unit:'天', sub:'本周开心次数', type:'mood'});
+    const happyN = wk.filter(r=>r.type==='mood' && ((r.data.mood||'').includes('开心')||(r.data.mood||'').includes('平静'))).length;
+    statCards.push({cls:'c-b', t:'本周好心情', badge:happyN>=3?'阳光':'加油', num:happyN, unit:'次', sub:'本周累计', type:'mood'});
+  }
+  if(allTypesUsed.has('smoke')){
+    const smokeN = wk.filter(r=>r.type==='smoke').reduce((a,r)=>a+(r.data.count||0),0);
+    statCards.push({cls:'c-c', t:'本周抽烟', badge:smokeN>=30?'多':smokeN>=10?'中':smokeN>=1?'少':'戒', num:smokeN, unit:'支', sub:'本周累计', type:'smoke'});
+  }
+  if(allTypesUsed.has('drink')){
+    const drinkN = wk.filter(r=>r.type==='drink').length;
+    const heavyN = wk.filter(r=>r.type==='drink' && (r.data.drunk||0)>=3).length;
+    statCards.push({cls:'', t:'本周饮酒', badge:heavyN>=2?'酗酒':drinkN>=3?'频繁':drinkN>=1?'微醺':'无', num:drinkN, unit:'次', sub:heavyN>0?heavyN+' 次喝大':'本周累计', type:'drink'});
   }
 
   const sr = document.getElementById('statsRow');
@@ -1441,7 +1450,7 @@ function renderHome(){
     sr.style.display = 'none';
   } else {
     sr.style.display = 'grid';
-    sr.innerHTML = statCards.slice(0,4).map(c=>`
+    sr.innerHTML = statCards.slice(0,6).map(c=>`
       <div class="stat-card ${c.cls}" onclick="filterRecent('${c.type}')">
         <div class="head"><span class="t">${c.t}</span><span class="badge">${c.badge}</span></div>
         <div class="num">${c.num} ${c.unit}</div>
