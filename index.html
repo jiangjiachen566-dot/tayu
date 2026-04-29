@@ -976,21 +976,52 @@ async function loadFromCloud(){
   try{
     const data = await supaApi('/rest/v1/records?select=*&order=date.desc,time.desc');
     const decrypted = [];
+    const needMigrate = []; // 需要迁移的旧加密行
     for(const row of data){
       const payload = await decryptStr(row.encrypted);
       if(payload){
         decrypted.push({id:row.id, type:row.type, date:row.date, time:row.time, data:payload.data||{}, note:payload.note||''});
+        // 判断是否旧 v1 加密格式（不是 JSON 的）
+        const isLegacy = !(row.encrypted && row.encrypted.startsWith('{'));
+        if(isLegacy) needMigrate.push({id:row.id, payload});
       }
     }
     records = decrypted;
     saveRecordsLocal();
     CLOUD_OK = true;
-    console.log('[tayu] 云端加载', records.length, '条');
+    console.log('[tayu] 云端加载', records.length, '条 (需迁移', needMigrate.length, '条)');
+    // 异步后台迁移：旧加密 → 明文 JSON
+    if(needMigrate.length > 0){
+      migrateLegacyRecords(needMigrate);
+    }
   }catch(e){
     console.error('云端加载失败：', e);
     loadRecordsLocal();
     CLOUD_OK = false;
     toast('⚠️ 云端同步失败，使用本地缓存');
+  }
+}
+
+/* 后台批量迁移旧 v1 加密数据 → v2 明文 JSON */
+async function migrateLegacyRecords(items){
+  console.log('[tayu] 开始迁移', items.length, '条旧数据');
+  toast('🔄 正在升级 ' + items.length + ' 条旧数据...');
+  let success = 0;
+  for(const item of items){
+    try {
+      const newEncrypted = JSON.stringify({data: item.payload.data || {}, note: item.payload.note || ''});
+      await supaApi('/rest/v1/records?id=eq.' + encodeURIComponent(item.id), {
+        method:'PATCH',
+        body: JSON.stringify({encrypted: newEncrypted})
+      });
+      success++;
+    } catch(e){
+      console.warn('[tayu] 迁移失败 id=' + item.id, e.message);
+    }
+  }
+  console.log('[tayu] 迁移完成', success + '/' + items.length);
+  if(success > 0){
+    toast('✅ 已升级 ' + success + ' 条数据，未来更稳定');
   }
 }
 
