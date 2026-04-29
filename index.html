@@ -810,6 +810,7 @@ async function authSubmit(){
     // 缓存密码到 sessionStorage（仅本会话内有效，关闭浏览器自动失效，刷新保留）
     // 这是隐私权衡：sessionStorage 可被同源 JS 读取，但本 App 没引入第三方脚本，可接受
     try { sessionStorage.setItem('tayu_pw', btoa(unescape(encodeURIComponent(pw)))); } catch(e){}
+    localStorage.setItem('tayu_logged_before', '1'); // 标记本设备登录过
     // 加载云端数据
     await loadFromCloud();
     enterApp();
@@ -817,15 +818,48 @@ async function authSubmit(){
   }catch(e){
     console.error('[tayu] auth error:', e, 'body:', e.body);
     const isNetErr = /Failed to fetch|NetworkError|abort|network/i.test(e.message||'');
-    let msg;
-    if(isNetErr){
-      msg = '🌐 无法连接服务器（多次重试失败）\n\n可能原因：\n1. 当前网络访问 Supabase 不稳定\n2. WiFi/运营商限制\n\n建议：\n· 切换到 4G/5G 流量再试\n· 或点击「暂不登录，仅本地使用」先用起来';
-    } else {
-      msg = e.message || JSON.stringify(e);
-    }
-    toast('❌ ' + (isNetErr?'网络问题':msg));
-    alert('登录/注册失败：\n\n' + msg + (e.body?'\n\n详情：'+JSON.stringify(e.body):''));
+    const errCode = (e.body && e.body.error_code) || '';
+    const isInvalidCred = errCode === 'invalid_credentials' || /invalid.*credential/i.test(e.message||'');
+    const isUserExists = errCode === 'user_already_exists' || /already.*registered|already.*exists/i.test(e.message||'');
+    const isWeakPw = errCode === 'weak_password' || /password.*weak|password.*short/i.test(e.message||'');
+
     btn.disabled = false; btn.textContent = authMode==='signup' ? '注册并开始使用' : '登录';
+
+    if(isNetErr){
+      toast('❌ 网络问题');
+      alert('🌐 无法连接服务器\n\n可能原因：\n· 当前网络访问 Supabase 不稳定\n· WiFi/运营商限制\n\n建议：\n· 切换到 4G/5G 流量再试\n· 或点「📱 暂不登录，仅本地使用」先用起来');
+      return;
+    }
+
+    if(isInvalidCred && authMode==='signin'){
+      // 登录失败 → 引导注册
+      toast('❌ 登录失败');
+      if(confirm('该邮箱密码组合不正确 ❌\n\n可能原因：\n① 你还没注册过这个邮箱\n② 密码输错了（注意区分大小写）\n\n点【确定】切换到注册页\n点【取消】重新输入密码')){
+        switchAuthTab('signup');
+        document.getElementById('authPassword').focus();
+        toast('已切换到注册');
+      }
+      return;
+    }
+
+    if(isUserExists && authMode==='signup'){
+      toast('该邮箱已注册');
+      if(confirm('这个邮箱已经注册过了 ⚠️\n\n点【确定】切换到登录\n点【取消】换个邮箱再试')){
+        switchAuthTab('signin');
+        document.getElementById('authPassword').focus();
+      }
+      return;
+    }
+
+    if(isWeakPw){
+      toast('❌ 密码太弱');
+      alert('密码强度不够 🔐\n\n建议：\n· 至少 8 位\n· 包含数字+字母\n· 不要用常见密码（123456、qwerty）');
+      return;
+    }
+
+    // 兜底：显示原始错误
+    toast('❌ ' + (e.message||'失败'));
+    alert('登录/注册失败：\n\n' + (e.message||JSON.stringify(e)) + (e.body?'\n\n详情：'+JSON.stringify(e.body):''));
   }
 }
 function useLocalOnly(){
@@ -2981,6 +3015,11 @@ async function bootstrap(){
     toast('请输入密码以解密本地数据');
   } else {
     document.getElementById('authPage').classList.remove('hide');
+    // 智能默认：从未登录过的设备 → 默认注册；登录过的 → 默认登录
+    const hasLoggedBefore = localStorage.getItem('tayu_logged_before');
+    if(!hasLoggedBefore){
+      switchAuthTab('signup');
+    }
   }
   // 后台预检 Supabase 可达性
   checkSupabaseReachable();
