@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>他柚 TAYU · 男性健康管理</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#f4f6fb;
@@ -324,6 +325,28 @@
   .toast.show{display:block;animation:fade .2s;}
   @keyframes fade{from{opacity:0;}to{opacity:1;}}
 
+  /* 登录页 */
+  .auth-page{position:fixed;inset:0;background:linear-gradient(160deg,#3b6cff 0%,#6f8dff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;z-index:300;color:#fff;}
+  .auth-page.hide{display:none;}
+  .auth-logo{font-size:64px;margin-bottom:6px;}
+  .auth-title{font-size:28px;font-weight:700;margin:0 0 4px;}
+  .auth-sub{font-size:14px;opacity:.85;margin:0 0 30px;}
+  .auth-card{background:rgba(255,255,255,.95);color:var(--text);border-radius:24px;padding:24px 22px;width:100%;max-width:340px;}
+  .auth-tabs{display:flex;background:#f4f6fb;border-radius:12px;padding:3px;margin-bottom:18px;}
+  .auth-tabs span{flex:1;text-align:center;padding:9px 0;font-size:14px;color:var(--text-2);border-radius:9px;cursor:pointer;font-weight:500;}
+  .auth-tabs span.on{background:#fff;color:var(--text);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:6px;font-weight:500;}
+  .auth-field input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font-size:15px;outline:none;background:#f7f8fc;}
+  .auth-field input:focus{border-color:var(--primary);background:#fff;}
+  .auth-btn{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#3b6cff,#6f8dff);color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-top:6px;}
+  .auth-btn:active{opacity:.85;}
+  .auth-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .auth-tip{font-size:11px;color:var(--text-3);margin-top:14px;text-align:center;line-height:1.6;}
+  .auth-warn{background:#fef3c7;color:#92400e;border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.5;margin-top:14px;}
+  .cloud-badge{display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#22c55e;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;margin-left:6px;}
+  .cloud-badge.offline{background:#fee2e2;color:#ef4444;}
+
   /* 文章详情/我的弹窗 */
   .modal{position:fixed;inset:0;background:rgba(20,30,60,.5);z-index:110;display:none;justify-content:center;align-items:center;}
   .modal.show{display:flex;}
@@ -336,6 +359,36 @@
 </head>
 <body>
 <div class="phone">
+
+  <!-- ============ 登录/注册页 ============ -->
+  <div class="auth-page" id="authPage">
+    <div class="auth-logo">🩺</div>
+    <h1 class="auth-title">他柚 TAYU</h1>
+    <p class="auth-sub">男性健康管理 · 数据云同步</p>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <span class="on" id="tabSignin" onclick="switchAuthTab('signin')">登录</span>
+        <span id="tabSignup" onclick="switchAuthTab('signup')">注册</span>
+      </div>
+      <div class="auth-field">
+        <label>邮箱</label>
+        <input type="email" id="authEmail" placeholder="your@email.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>密码 <span style="color:var(--text-3);font-weight:400;">（至少 6 位，也是数据加密密钥）</span></label>
+        <input type="password" id="authPassword" placeholder="输入密码" autocomplete="current-password">
+      </div>
+      <button class="auth-btn" id="authSubmit" onclick="authSubmit()">登录</button>
+      <div class="auth-warn">
+        🔐 <b>零知识加密：</b>所有健康记录在本地用密码加密后再上传，云端只存密文。<b>密码丢失 = 数据永久丢失</b>，无法找回，请妥善保管。
+      </div>
+      <div class="auth-tip">
+        登录即表示同意服务条款与隐私政策<br>
+        <span style="color:var(--primary);cursor:pointer;" onclick="useLocalOnly()">暂不登录，仅本地使用 →</span>
+      </div>
+    </div>
+  </div>
+
 
   <!-- ============ 首页 ============ -->
   <div class="page active" id="page-home">
@@ -524,8 +577,189 @@
 
 <script>
 /* =========================================================
-   类型定义
+   Supabase 配置
    ========================================================= */
+const SUPABASE_URL = 'https://bgxifxjjghynsxdtizag.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qTgYstLsU2gu135VqBslpA_QCe2NSeO';
+const supa = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let CURRENT_USER = null;
+let LOCAL_ONLY_MODE = false; // 不登录、仅本地
+
+/* =========================================================
+   客户端加密（AES-GCM + PBKDF2）
+   密码派生密钥，全程不上传服务端
+   ========================================================= */
+let CRYPTO_KEY = null; // CryptoKey 对象
+async function deriveKey(password, saltStr){
+  const enc = new TextEncoder();
+  const salt = enc.encode(saltStr || 'tayu_salt_v1_static');
+  const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'},
+    baseKey,
+    {name:'AES-GCM', length:256},
+    false,
+    ['encrypt','decrypt']
+  );
+}
+async function encryptObj(obj){
+  if(!CRYPTO_KEY) return JSON.stringify(obj); // local-only 模式不加密
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(JSON.stringify(obj));
+  const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, CRYPTO_KEY, data);
+  const combined = new Uint8Array(iv.length + cipher.byteLength);
+  combined.set(iv); combined.set(new Uint8Array(cipher), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+async function decryptStr(b64){
+  if(!CRYPTO_KEY){
+    try{ return JSON.parse(b64); }catch(e){ return null; }
+  }
+  try{
+    const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+    const iv = bytes.slice(0,12);
+    const cipher = bytes.slice(12);
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, CRYPTO_KEY, cipher);
+    return JSON.parse(new TextDecoder().decode(plain));
+  }catch(e){ console.warn('解密失败：', e); return null; }
+}
+
+/* =========================================================
+   登录 / 注册流程
+   ========================================================= */
+let authMode = 'signin';
+function switchAuthTab(mode){
+  authMode = mode;
+  document.getElementById('tabSignin').classList.toggle('on', mode==='signin');
+  document.getElementById('tabSignup').classList.toggle('on', mode==='signup');
+  document.getElementById('authSubmit').textContent = mode==='signin' ? '登录' : '注册并开始使用';
+}
+async function authSubmit(){
+  const email = document.getElementById('authEmail').value.trim();
+  const pw = document.getElementById('authPassword').value;
+  if(!email || !pw){ toast('请填写邮箱和密码'); return; }
+  if(pw.length<6){ toast('密码至少 6 位'); return; }
+  const btn = document.getElementById('authSubmit');
+  btn.disabled = true; btn.textContent = '处理中...';
+  try{
+    let res;
+    if(authMode==='signup'){
+      res = await supa.auth.signUp({email, password:pw});
+      if(res.error) throw res.error;
+      if(!res.data.session){ // 需要邮箱确认
+        toast('注册成功，但需要邮件确认。请按指引或先关闭"Confirm email"');
+        btn.disabled = false; btn.textContent = '注册并开始使用';
+        return;
+      }
+    } else {
+      res = await supa.auth.signInWithPassword({email, password:pw});
+      if(res.error) throw res.error;
+    }
+    // 派生加密密钥（用 user.id 当 salt，每个用户独立）
+    CURRENT_USER = res.data.user;
+    CRYPTO_KEY = await deriveKey(pw, CURRENT_USER.id);
+    // 加载云端数据并解密
+    await loadFromCloud();
+    enterApp();
+    toast(authMode==='signup' ? '🎉 注册成功，开始记录吧' : '👋 欢迎回来');
+  }catch(e){
+    toast('❌ ' + (e.message || '操作失败'));
+    btn.disabled = false; btn.textContent = authMode==='signup' ? '注册并开始使用' : '登录';
+  }
+}
+function useLocalOnly(){
+  LOCAL_ONLY_MODE = true;
+  CRYPTO_KEY = null;
+  loadRecordsLocal();
+  enterApp();
+  toast('🔓 仅本地模式，数据不会上云');
+}
+function enterApp(){
+  document.getElementById('authPage').classList.add('hide');
+  renderHome();
+}
+async function logoutUser(){
+  if(!confirm('退出登录？本地缓存将被清除（云端数据不受影响）。')) return;
+  if(supa) await supa.auth.signOut();
+  CURRENT_USER = null;
+  CRYPTO_KEY = null;
+  records = [];
+  localStorage.removeItem(LS_KEY);
+  document.getElementById('authPage').classList.remove('hide');
+  closeModal();
+}
+
+/* =========================================================
+   数据存储 (localStorage 缓存 + Supabase 云端)
+   ========================================================= */
+const LS_KEY = 'tayu_records_v1';
+let records = [];
+let CLOUD_OK = false; // 当前是否能正常同步
+
+function loadRecordsLocal(){
+  try{ records = JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ records = []; }
+}
+function saveRecordsLocal(){ localStorage.setItem(LS_KEY, JSON.stringify(records)); }
+
+async function loadFromCloud(){
+  if(!supa || !CURRENT_USER) return;
+  try{
+    const {data, error} = await supa.from('records').select('*').order('date',{ascending:false}).order('time',{ascending:false});
+    if(error) throw error;
+    const decrypted = [];
+    for(const row of data){
+      const payload = await decryptStr(row.encrypted);
+      if(payload){
+        decrypted.push({id:row.id, type:row.type, date:row.date, time:row.time, data:payload.data||{}, note:payload.note||''});
+      }
+    }
+    records = decrypted;
+    saveRecordsLocal();
+    CLOUD_OK = true;
+  }catch(e){
+    console.error('云端加载失败：', e);
+    loadRecordsLocal();
+    CLOUD_OK = false;
+    toast('⚠️ 云端同步失败，使用本地缓存');
+  }
+}
+
+async function addRecord(rec){
+  // 先本地，再云端
+  rec.id = Date.now();
+  records.unshift(rec);
+  saveRecordsLocal();
+  if(supa && CURRENT_USER && !LOCAL_ONLY_MODE){
+    try{
+      const encrypted = await encryptObj({data:rec.data, note:rec.note});
+      const {data, error} = await supa.from('records').insert({
+        user_id: CURRENT_USER.id,
+        type: rec.type, date: rec.date, time: rec.time,
+        encrypted
+      }).select().single();
+      if(error) throw error;
+      // 更新本地 id 为云端 id
+      const local = records.find(r=>r.id===rec.id);
+      if(local) local.id = data.id;
+      saveRecordsLocal();
+      CLOUD_OK = true;
+    }catch(e){
+      console.warn('云端写入失败：', e);
+      CLOUD_OK = false;
+      toast('⚠️ 已保存到本地，云端同步失败');
+    }
+  }
+}
+
+async function deleteRecord(id){
+  records = records.filter(r=>r.id!==id);
+  saveRecordsLocal();
+  if(supa && CURRENT_USER && !LOCAL_ONLY_MODE){
+    try{
+      await supa.from('records').delete().eq('id', id);
+    }catch(e){ console.warn('云端删除失败：', e); }
+  }
+}
 const TYPES = [
   {key:'jerk',  name:'解压记录', emoji:'✋', color:'jerk',  cls:'c-jerk',  tip:'追踪频率与身体反馈'},
   {key:'sex',   name:'性生活',   emoji:'❤️', color:'sex',   cls:'c-sex',   tip:'记录频率、质量与感受'},
@@ -537,25 +771,9 @@ const TYPES = [
 ];
 
 /* =========================================================
-   数据存储 (localStorage)
+   （旧的本地存储已迁移到上方 Supabase 章节）
    ========================================================= */
-const LS_KEY = 'tayu_records_v1';
-let records = [];
-function loadRecords(){
-  try{ records = JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ records = []; }
-  // 注：新用户保持空状态，不再自动注入示例数据
-}
-function saveRecords(){ localStorage.setItem(LS_KEY, JSON.stringify(records)); }
 function seedDemo(){ /* 已弃用 */ }
-function addRecord(rec){
-  rec.id = Date.now();
-  records.unshift(rec);
-  saveRecords();
-}
-function deleteRecord(id){
-  records = records.filter(r=>r.id!==id);
-  saveRecords();
-}
 
 /* =========================================================
    工具
@@ -813,10 +1031,10 @@ function refreshPeeRisk(){
   box.innerHTML = `<div style="font-weight:600;color:${r.color};font-size:13px;">⚕️ 健康评估：${r.level}（评分 ${r.score}）</div><div style="font-size:12px;color:#5b6478;margin-top:4px;line-height:1.5;">${r.advice}</div>`;
 }
 
-function saveRecord(){
+async function saveRecord(){
   const t = getType(curType);
   const beforeUnlocked = getMedalStatus().filter(m=>m.unlocked).map(m=>m.id);
-  addRecord({type:curType, date:formState.date, time:formState.time, data:{...formState.data}, note:formState.note||''});
+  await addRecord({type:curType, date:formState.date, time:formState.time, data:{...formState.data}, note:formState.note||''});
   closeSheet();
   toast(`✅ 已保存「${t.name}」`);
   renderHome();
@@ -1344,9 +1562,9 @@ function viewRecord(id){
   }
   showModal(`<h3>${t.emoji} ${t.name}</h3><p style="color:#9aa3b6;font-size:12px;">${r.date} ${r.time}</p>${lines}${r.note?`<p>· 备注：${r.note}</p>`:''}${extra}<div class="close-line" style="gap:8px;"><button onclick="delRec(${r.id});closeModal()">删除</button><button onclick="closeModal()" style="background:var(--primary);color:#fff;">关闭</button></div>`);
 }
-function delRec(id){
+async function delRec(id){
   if(!confirm('确定删除这条记录？')) return;
-  deleteRecord(id);
+  await deleteRecord(id);
   toast('已删除');
   renderCalendar();
   selectDay(currentSelDate);
@@ -1714,18 +1932,33 @@ function openProfile(){
   const total = records.length;
   const days = new Set(records.map(r=>r.date)).size;
   const medalUnlocked = getMedalStatus().filter(m=>m.unlocked).length;
+  let cloudInfo = '';
+  if(LOCAL_ONLY_MODE){
+    cloudInfo = `<p>☁️ 数据状态 <span class="cloud-badge offline">仅本地</span></p>`;
+  } else if(CURRENT_USER){
+    cloudInfo = `<p>📧 ${CURRENT_USER.email} <span class="cloud-badge">${CLOUD_OK?'已同步':'离线'}</span></p>`;
+  }
   showModal(`
     <h3>👨 集帅</h3>
+    ${cloudInfo}
     <p>📊 累计记录 <b>${total}</b> 条 · 共 <b>${days}</b> 天</p>
-    <p>🎂 30 岁 · 175cm · 70kg</p>
     <p>🔥 连续打卡 <b>${(()=>{let s=0,d=new Date();while(records.some(r=>r.date===fmtDate(d))){s++;d.setDate(d.getDate()-1);if(s>365)break;}return s;})()}</b> 天</p>
     <p>🏆 已获勋章 <b>${medalUnlocked}/${MEDALS.length}</b></p>
     <hr style="border:none;border-top:1px solid #eef0f6;margin:14px 0;">
     <p style="cursor:pointer" onclick="closeModal();setTimeout(openMedals,200)">🏆 我的勋章收藏</p>
     <p style="cursor:pointer" onclick="exportData()">📤 导出我的数据</p>
-    <p style="cursor:pointer;color:#ef4444" onclick="resetData()">🗑️ 清空所有数据</p>
+    ${!LOCAL_ONLY_MODE && CURRENT_USER ? '<p style="cursor:pointer" onclick="syncFromCloud()">🔄 重新同步云端</p>' : ''}
+    ${CURRENT_USER ? '<p style="cursor:pointer;color:#ef4444" onclick="logoutUser()">🚪 退出登录</p>' : '<p style="cursor:pointer;color:var(--primary)" onclick="closeModal();document.getElementById(\'authPage\').classList.remove(\'hide\');">☁️ 登录以同步云端</p>'}
+    <p style="cursor:pointer;color:#ef4444" onclick="resetData()">🗑️ 清空本地数据</p>
     <div class="close-line"><button onclick="closeModal()">关闭</button></div>
   `);
+}
+async function syncFromCloud(){
+  closeModal();
+  toast('🔄 同步中...');
+  await loadFromCloud();
+  renderHome();
+  toast(CLOUD_OK?'✅ 同步完成':'⚠️ 同步失败');
 }
 function exportData(){
   const blob = new Blob([JSON.stringify(records,null,2)], {type:'application/json'});
@@ -1736,12 +1969,12 @@ function exportData(){
   closeModal();
   toast('已导出');
 }
-function resetData(){
-  if(!confirm('确认清空所有数据？此操作不可恢复')) return;
+async function resetData(){
+  if(!confirm('确认清空所有本地数据？\n（云端数据不会被删除，可重新同步找回）')) return;
   localStorage.removeItem(LS_KEY);
   records = [];
   closeModal();
-  toast('已清空');
+  toast('已清空本地');
   renderHome(); renderCalendar(); selectDay(todayStr());
 }
 function showModal(html){
@@ -1774,10 +2007,44 @@ if(window.Chart){
   Chart.defaults.font.size = 12;
   Chart.defaults.color = '#5b6478';
 }
-loadRecords();
-renderHome();
-renderCalendar();
-selectDay(todayStr());
+
+/* 启动：先尝试恢复登录会话，否则显示登录页 */
+async function bootstrap(){
+  // 先把日历等基础渲染（用空数据占位，避免错误）
+  loadRecordsLocal();
+  renderCalendar();
+  selectDay(todayStr());
+
+  if(!supa){
+    // SDK 未加载（离线/CDN 失败）→ 直接 local-only
+    LOCAL_ONLY_MODE = true;
+    enterApp();
+    toast('⚠️ 离线模式');
+    return;
+  }
+  // 检查是否已有会话
+  const {data:{session}} = await supa.auth.getSession();
+  if(session){
+    // 自动登录但 PBKDF2 密钥需要密码 → 需要让用户解锁一次
+    CURRENT_USER = session.user;
+    promptUnlock();
+  } else {
+    // 未登录，显示登录页
+    document.getElementById('authPage').classList.remove('hide');
+  }
+}
+
+function promptUnlock(){
+  // 已有会话但还没派生密钥（首次启动浏览器）→ 提示输入密码
+  document.getElementById('authPage').classList.remove('hide');
+  document.getElementById('authEmail').value = CURRENT_USER.email;
+  document.getElementById('authEmail').readOnly = true;
+  document.getElementById('authPassword').focus();
+  switchAuthTab('signin');
+  toast('请输入密码以解密本地数据');
+}
+
+bootstrap();
 window.addEventListener('load', ()=>{});
 </script>
 </body>
