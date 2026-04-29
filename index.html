@@ -213,6 +213,8 @@
   #pieChart{width:100% !important;height:200px !important;}
   #radarChart{width:100% !important;height:300px !important;}
   #trendChart{width:100% !important;height:200px !important;}
+  .trend-chips .tchip{padding:6px 12px;border-radius:14px;background:#f4f6fb;color:var(--text-2);font-size:12px;cursor:pointer;border:1px solid transparent;transition:.15s;}
+  .trend-chips .tchip.on{background:var(--primary);color:#fff;border-color:var(--primary);}
   /* 热力图 */
   .heatmap-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-top:8px;}
   .heat-cell{aspect-ratio:1;border-radius:4px;background:#f0f2f7;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-3);transition:.15s;}
@@ -506,11 +508,15 @@
         <div id="heatmap"></div>
       </div>
       <div class="big-chart">
-        <h4>📊 健康维度雷达 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;">本期各维度活跃度</span></h4>
+        <h4>🩺 健康维度评分 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;">每维 0-100，越大越健康</span></h4>
         <div style="padding:0 8px;"><canvas id="radarChart"></canvas></div>
+        <div id="radarLegend" style="font-size:11px;color:var(--text-3);line-height:1.6;margin-top:8px;padding:8px 10px;background:#f7f8fc;border-radius:10px;"></div>
       </div>
       <div class="big-chart">
-        <h4>📈 趋势对比 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;">解压 vs 运动 vs 起夜</span></h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h4 style="margin:0;">📈 趋势分析 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;" id="trendSubtitle">选择维度查看趋势</span></h4>
+        </div>
+        <div class="trend-chips" id="trendChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
         <canvas id="trendChart"></canvas>
       </div>
       <div class="insight">
@@ -1800,6 +1806,7 @@ function initMiniChart(){
 function initBigCharts(){
   renderHeatmap();
   renderRadar();
+  renderTrendChips();
   renderTrend();
 }
 
@@ -1831,94 +1838,222 @@ function goDate(ds){
   selectDay(ds);
 }
 
-/* 雷达图：本期各健康维度活跃度 */
+/* =========================================================
+   雷达图：6 维度健康评分
+   每个维度都是「健康程度 0-100」，越大越健康（不是活跃度）
+   - 排精频率：钟形评分，每周 2-4 次满分，过少/过多扣分
+   - 睡眠：钟形，平均 7-9 小时满分
+   - 泌尿：基于 peeRisk 评估
+   - 夜尿：单调，越少越好
+   - 运动：每周 ≥3 次满分
+   - 心情：开心/平静占比越高越好
+   ========================================================= */
+function calcDimScores(){
+  const rs = rangeRecords();
+  const days = ovRange==='week'?7:ovRange==='month'?30:ovRange==='quarter'?90:365;
+  const weeks = days/7;
+
+  // 1. 排精频率（含解压+性生活）
+  const ejacTotal = rs.filter(r=>r.type==='jerk'||r.type==='sex').length;
+  const ejacPerWeek = ejacTotal/weeks;
+  // 钟形：2-4 次最佳（100 分）；0 次=40；7+ 次=30；线性过渡
+  let ejacScore;
+  if(ejacPerWeek>=2 && ejacPerWeek<=4) ejacScore = 100;
+  else if(ejacPerWeek<2) ejacScore = 40 + (ejacPerWeek/2)*60; // 0→40, 2→100
+  else ejacScore = Math.max(20, 100 - (ejacPerWeek-4)*15);     // 4→100, 9→25
+
+  // 2. 睡眠
+  const sleepRecs = rs.filter(r=>r.type==='sleep');
+  let sleepScore = 50; // 默认 50（无数据）
+  if(sleepRecs.length>0){
+    const avgH = sleepRecs.reduce((a,r)=>a+(r.data.hours||calcSleepHours(r.data.bedtime,r.data.waketime)||0),0)/sleepRecs.length;
+    if(avgH>=7 && avgH<=9) sleepScore = 100;
+    else if(avgH>=6 && avgH<10) sleepScore = 75;
+    else if(avgH>=5 && avgH<11) sleepScore = 50;
+    else sleepScore = 30;
+    // 记录覆盖率折扣：记录天数比例越高越准确
+    const coverage = Math.min(1, sleepRecs.length/days);
+    sleepScore = Math.round(50 + (sleepScore-50)*coverage);
+  }
+
+  // 3. 泌尿健康
+  const peeRecs = rs.filter(r=>r.type==='pee');
+  let peeScore = 70; // 无数据中性
+  if(peeRecs.length>0){
+    const normalRate = peeRecs.filter(r=>peeRisk(r.data).level==='正常').length / peeRecs.length;
+    const worstScore = Math.max(...peeRecs.map(r=>peeRisk(r.data).score));
+    peeScore = Math.round(100 * normalRate - worstScore*3);
+    peeScore = Math.max(20, Math.min(100, peeScore));
+  }
+
+  // 4. 夜尿（越少越好）
+  const nightTotal = rs.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
+  const nightPerNight = nightTotal/days;
+  let nightScore;
+  if(nightPerNight===0) nightScore = 100;
+  else if(nightPerNight<=0.5) nightScore = 90;
+  else if(nightPerNight<=1) nightScore = 75;
+  else if(nightPerNight<=1.5) nightScore = 55;
+  else if(nightPerNight<=2.5) nightScore = 35;
+  else nightScore = 20;
+
+  // 5. 运动（钟形：每周 3-5 次最佳）
+  const sportPerWeek = rs.filter(r=>r.type==='sport').length/weeks;
+  let sportScore;
+  if(sportPerWeek>=3 && sportPerWeek<=5) sportScore = 100;
+  else if(sportPerWeek>=1 && sportPerWeek<3) sportScore = 50 + (sportPerWeek-1)*25; // 1→50, 3→100
+  else if(sportPerWeek<1) sportScore = 20 + sportPerWeek*30; // 0→20, 1→50
+  else sportScore = Math.max(60, 100-(sportPerWeek-5)*10); // 过度训练扣分
+
+  // 6. 心情（开心+平静占比）
+  const moodRecs = rs.filter(r=>r.type==='mood');
+  let moodScore = 60;
+  if(moodRecs.length>0){
+    const goodRate = moodRecs.filter(r=>{
+      const m = r.data.mood||'';
+      return m.includes('开心')||m.includes('平静');
+    }).length / moodRecs.length;
+    const avgStress = moodRecs.reduce((a,r)=>a+(r.data.stress||0),0)/moodRecs.length;
+    moodScore = Math.round(50 + goodRate*60 - avgStress*8);
+    moodScore = Math.max(20, Math.min(100, moodScore));
+  }
+
+  return {
+    '排精节律': Math.round(ejacScore),
+    '睡眠质量': Math.round(sleepScore),
+    '泌尿健康': Math.round(peeScore),
+    '夜尿控制': Math.round(nightScore),
+    '运动充足': Math.round(sportScore),
+    '心情状态': Math.round(moodScore)
+  };
+}
+
 function renderRadar(){
   const ctx = document.getElementById('radarChart');
   if(!ctx) return;
   if(window._radar) window._radar.destroy();
-  const rs = rangeRecords();
-  const days = ovRange==='week'?7:ovRange==='month'?30:ovRange==='quarter'?90:365;
-  // 各维度计算 0-100 的活跃度评分
-  const sportCnt = rs.filter(r=>r.type==='sport').length;
-  const sleepCnt = rs.filter(r=>r.type==='sleep').length;
-  const moodCnt  = rs.filter(r=>r.type==='mood').length;
-  const sexCnt   = rs.filter(r=>r.type==='sex').length;
-  const jerkCnt  = rs.filter(r=>r.type==='jerk').length;
-  const peeNorm  = rs.filter(r=>r.type==='pee'&&peeRisk(r.data).level==='正常').length;
-  const peeAbn   = rs.filter(r=>r.type==='pee'&&peeRisk(r.data).level!=='正常').length;
-  const nightAvg = rs.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0)/Math.max(1,days);
-  const score = {
-    '运动': Math.min(100, sportCnt/days*100*3), // 每周 3 次 = 100
-    '睡眠': Math.min(100, sleepCnt/days*100),
-    '情绪': Math.min(100, moodCnt/days*100),
-    '亲密': Math.min(100, sexCnt/days*100*7),  // 每周 1 次 = 100
-    '泌尿': Math.max(0, 100 - peeAbn*20 + (peeNorm>0?20:0)),
-    '夜尿': Math.max(0, 100 - nightAvg*40),    // 0 次 = 100, 2.5 次 = 0
-    '解压': Math.max(0, Math.min(100, 100 - Math.abs(jerkCnt/days*7 - 3)*20)) // 接近每周 3 次最佳
-  };
+  const score = calcDimScores();
+  const avg = Math.round(Object.values(score).reduce((a,b)=>a+b,0)/Object.keys(score).length);
+
   window._radar = new Chart(ctx,{
     type:'radar',
     data:{
       labels:Object.keys(score),
-      datasets:[{
-        label:'活跃度',
-        data:Object.values(score).map(v=>Math.round(v)),
-        backgroundColor:'rgba(59,108,255,.2)',
-        borderColor:'#3b6cff',
-        pointBackgroundColor:'#3b6cff',
-        pointRadius:4,
-        borderWidth:2
-      }]
+      datasets:[
+        // 满分基准（淡灰）
+        {label:'满分参考', data:Object.keys(score).map(()=>100),
+         backgroundColor:'rgba(238,240,246,.3)', borderColor:'#eef0f6',
+         pointRadius:0, borderWidth:1, borderDash:[4,4]},
+        // 实际得分
+        {label:'你的得分', data:Object.values(score),
+         backgroundColor:'rgba(59,108,255,.25)', borderColor:'#3b6cff',
+         pointBackgroundColor:'#3b6cff', pointBorderColor:'#fff', pointBorderWidth:2,
+         pointRadius:5, borderWidth:2.5}
+      ]
     },
     options:{
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' 分'}}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+' 分'}}
+      },
       scales:{r:{
         suggestedMin:0, suggestedMax:100,
         ticks:{display:false, stepSize:25},
-        pointLabels:{font:{size:13, family:"-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif"}, color:'#1a2238', padding:8},
+        pointLabels:{font:{size:13, family:"-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif"}, color:'#1a2238', padding:10},
         grid:{color:'#eef0f6'},
         angleLines:{color:'#eef0f6'}
       }}
     }
   });
+
+  // 图例 + 短板提示
+  const sorted = Object.entries(score).sort((a,b)=>a[1]-b[1]);
+  const weakest = sorted[0];
+  const strongest = sorted[sorted.length-1];
+  document.getElementById('radarLegend').innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+      <span>📊 综合健康分 <b style="color:var(--primary);">${avg}</b>/100</span>
+      <span style="color:var(--text-3);">本期 ${ovRange==='week'?'7':ovRange==='month'?'30':ovRange==='quarter'?'90':'365'} 天</span>
+    </div>
+    <div style="color:var(--green);">💪 最强项：${strongest[0]} (${strongest[1]} 分)</div>
+    <div style="color:var(--accent);margin-top:2px;">⚠️ 短板：${weakest[0]} (${weakest[1]} 分) — 重点改善</div>
+  `;
 }
 
-/* 趋势图：解压/运动/起夜 三条折线对比 */
+/* =========================================================
+   趋势图：单维度切换
+   ========================================================= */
+const TREND_DIMS = [
+  {key:'ejac',  label:'排精频率', color:'#ff7a59', desc:'解压+亲密总次数', getter:(rs)=>rs.filter(r=>r.type==='jerk'||r.type==='sex').length},
+  {key:'jerk',  label:'解压',     color:'#ff7a59', desc:'自我解压次数',     getter:(rs)=>rs.filter(r=>r.type==='jerk').length},
+  {key:'sex',   label:'亲密生活', color:'#3b6cff', desc:'伴侣生活次数',     getter:(rs)=>rs.filter(r=>r.type==='sex').length},
+  {key:'night', label:'起夜',     color:'#8b5cf6', desc:'夜间排尿总次数',   getter:(rs)=>rs.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0)},
+  {key:'pee',   label:'排尿异常', color:'#f59e0b', desc:'非正常评估次数',   getter:(rs)=>rs.filter(r=>r.type==='pee'&&peeRisk(r.data).level!=='正常').length},
+  {key:'sport', label:'运动',     color:'#22c55e', desc:'运动次数',         getter:(rs)=>rs.filter(r=>r.type==='sport').length},
+  {key:'sleep', label:'平均睡眠', color:'#06b6d4', desc:'每日平均小时',     getter:(rs)=>{
+    const ss = rs.filter(r=>r.type==='sleep'); if(!ss.length) return 0;
+    return Math.round(ss.reduce((a,r)=>a+(r.data.hours||calcSleepHours(r.data.bedtime,r.data.waketime)||0),0)/ss.length*10)/10;
+  }, isAvg:true},
+  {key:'mood',  label:'好心情',   color:'#ec4899', desc:'开心+平静次数',     getter:(rs)=>rs.filter(r=>r.type==='mood'&&((r.data.mood||'').includes('开心')||(r.data.mood||'').includes('平静'))).length}
+];
+let curTrendDim = 'ejac';
+
+function renderTrendChips(){
+  const box = document.getElementById('trendChips');
+  if(!box) return;
+  box.innerHTML = TREND_DIMS.map(d=>`
+    <div class="tchip ${d.key===curTrendDim?'on':''}" onclick="switchTrendDim('${d.key}')" style="${d.key===curTrendDim?'background:'+d.color+';border-color:'+d.color+';':''}">${d.label}</div>
+  `).join('');
+}
+function switchTrendDim(key){
+  curTrendDim = key;
+  renderTrendChips();
+  renderTrend();
+}
+
 function renderTrend(){
   const ctx = document.getElementById('trendChart');
   if(!ctx) return;
   if(window._trend) window._trend.destroy();
+  const dim = TREND_DIMS.find(d=>d.key===curTrendDim) || TREND_DIMS[0];
+  document.getElementById('trendSubtitle').textContent = dim.desc;
+
   let buckets, labelFn, daysPerBucket;
   if(ovRange==='week'){ buckets=7; daysPerBucket=1; labelFn=(i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return ['日','一','二','三','四','五','六'][d.getDay()];};}
   else if(ovRange==='month'){ buckets=4; daysPerBucket=7; labelFn=i=>'第'+(i+1)+'周'; }
   else if(ovRange==='quarter'){ buckets=3; daysPerBucket=30; labelFn=i=>['前月','上月','本月'][i]; }
   else { buckets=12; daysPerBucket=30; labelFn=i=>(i+1)+'月'; }
   const labels = []; for(let i=0;i<buckets;i++) labels.push(labelFn(i));
+
   const today = new Date();
-  const series = [
-    {key:'jerk', label:'解压', color:'#ff7a59'},
-    {key:'sport', label:'运动', color:'#22c55e'},
-    {key:'night', label:'起夜', color:'#8b5cf6', sumByCount:true}
-  ].map(s=>{
-    const arr = new Array(buckets).fill(0);
-    records.forEach(r=>{
-      if(r.type!==s.key) return;
-      const d = new Date(r.date);
-      const diff = Math.floor((today-d)/86400000);
-      if(diff<0) return;
-      const idx = buckets-1-Math.floor(diff/daysPerBucket);
-      if(idx>=0 && idx<buckets) arr[idx] += s.sumByCount?(r.data.count||1):1;
-    });
-    return {label:s.label, data:arr, borderColor:s.color, backgroundColor:s.color+'22', fill:false, tension:.4, pointRadius:4, pointBackgroundColor:s.color, borderWidth:2};
+  // 按 bucket 分组算
+  const data = new Array(buckets).fill(0);
+  const buckRecs = new Array(buckets).fill(null).map(()=>[]);
+  records.forEach(r=>{
+    const d = new Date(r.date);
+    const diff = Math.floor((today-d)/86400000);
+    if(diff<0 || diff>=buckets*daysPerBucket) return;
+    const idx = buckets-1-Math.floor(diff/daysPerBucket);
+    if(idx>=0 && idx<buckets) buckRecs[idx].push(r);
   });
+  for(let i=0;i<buckets;i++) data[i] = dim.getter(buckRecs[i]);
+
   window._trend = new Chart(ctx,{
     type:'line',
-    data:{labels, datasets:series},
+    data:{labels, datasets:[{
+      label:dim.label, data,
+      borderColor:dim.color, backgroundColor:dim.color+'30',
+      fill:true, tension:.4, pointRadius:5, pointBackgroundColor:dim.color,
+      pointBorderColor:'#fff', pointBorderWidth:2, borderWidth:2.5
+    }]},
     options:{
-      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:14,padding:12}}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>dim.label+': '+c.raw+(dim.isAvg?' h':' 次')}}
+      },
       scales:{
-        y:{beginAtZero:true, ticks:{font:{size:10},precision:0}, grid:{color:'#eef0f6'}},
-        x:{grid:{display:false}, ticks:{font:{size:10}}}
+        y:{beginAtZero:true, ticks:{font:{size:11},precision:dim.isAvg?1:0}, grid:{color:'#eef0f6'}},
+        x:{grid:{display:false}, ticks:{font:{size:11}}}
       }
     }
   });
