@@ -743,23 +743,54 @@ const supaAuth = {
 };
 
 /* =========================================================
-   数据序列化（直接 JSON，无客户端加密）
-   注：v2 起去掉了客户端加密，依靠 Supabase RLS 行级安全保证用户隔离
-   兼容 v1 旧加密数据（base64 长字符串）：解密失败返回 null 即跳过
+/* =========================================================
+   数据序列化
+   - 新数据以 JSON 明文存储（v2 起）
+   - 兼容 v1 旧 AES-GCM 加密数据：自动用 PBKDF2(密码,user.id) 派生密钥解密
+   - sessionStorage 缓存登录密码用于解密旧数据（仅本会话）
    ========================================================= */
-let CRYPTO_KEY = null; // 兼容保留，永远 null
-async function deriveKey(){ return null; }
+let CRYPTO_KEY = null; // 旧数据解密用密钥
+
+async function deriveLegacyKey(password, saltStr){
+  const enc = new TextEncoder();
+  const salt = enc.encode(saltStr || 'tayu_salt_v1_static');
+  const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'},
+    baseKey,
+    {name:'AES-GCM', length:256},
+    false,
+    ['encrypt','decrypt']
+  );
+}
+// 兼容旧函数名
+async function deriveKey(p, s){ return await deriveLegacyKey(p, s); }
 
 async function encryptObj(obj){
+  // 新数据明文 JSON
   return JSON.stringify(obj);
 }
+
 async function decryptStr(s){
   if(!s) return null;
+  // 1) 先尝试 JSON.parse（新格式）
   try {
-    return JSON.parse(s);
+    const parsed = JSON.parse(s);
+    if(parsed && typeof parsed === 'object') return parsed;
+  } catch(e){ /* fall through to legacy */ }
+  // 2) 旧 v1 加密数据：用 CRYPTO_KEY 解 AES-GCM
+  if(!CRYPTO_KEY){
+    console.warn('[tayu] 旧加密数据需要密钥，跳过');
+    return null;
+  }
+  try {
+    const bytes = Uint8Array.from(atob(s), c=>c.charCodeAt(0));
+    const iv = bytes.slice(0,12);
+    const cipher = bytes.slice(12);
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, CRYPTO_KEY, cipher);
+    return JSON.parse(new TextDecoder().decode(plain));
   } catch(e){
-    // 兼容 v1 旧加密数据 — 没有密钥解不了，返回 null 让上层跳过该条
-    console.warn('[tayu] 跳过无法解析的旧加密数据');
+    console.warn('[tayu] AES 解密失败，跳过该条', e.message);
     return null;
   }
 }
@@ -821,6 +852,11 @@ async function authSubmit(){
     // 保存会话（不再需要派生密钥，因为去掉了客户端加密）
     supaAuth.saveSession(res);
     localStorage.setItem('tayu_logged_before', '1');
+    // 派生 v1 旧数据解密密钥（仅用于读取历史数据，新数据明文）
+    try {
+      CRYPTO_KEY = await deriveLegacyKey(pw, CURRENT_USER.id);
+      sessionStorage.setItem('tayu_pw', btoa(unescape(encodeURIComponent(pw))));
+    } catch(e){ console.warn('[tayu] 派生旧密钥失败:', e); }
     // 同步云端昵称到本地
     if(CURRENT_USER && CURRENT_USER.user_metadata && CURRENT_USER.user_metadata.username){
       localStorage.setItem('tayu_username', CURRENT_USER.user_metadata.username);
@@ -3057,7 +3093,15 @@ async function bootstrap(){
 
   const session = supaAuth.loadSession();
   if(session){
-    // 已登录会话 → 直接拉云端数据 + 进 App，无需再输密码
+    // 恢复旧数据解密密钥（如果 sessionStorage 还有密码缓存）
+    try {
+      const cachedPw = sessionStorage.getItem('tayu_pw');
+      if(cachedPw){
+        const pw = decodeURIComponent(escape(atob(cachedPw)));
+        CRYPTO_KEY = await deriveLegacyKey(pw, session.user.id);
+      }
+    } catch(e){ console.warn('[tayu] 恢复旧密钥失败:', e); }
+    // 已登录会话 → 直接拉云端数据 + 进 App
     try {
       await loadFromCloud();
     } catch(e){ console.warn('[tayu] cloud load on boot:', e); }
