@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>他柚 TAYU · 男性健康管理</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fb;
+    --card:#ffffff;
+    --primary:#3b6cff;
+    --primary-soft:#e8efff;
+    --accent:#ff7a59;
+    --accent-soft:#ffe9e1;
+    --green:#22c55e;
+    --green-soft:#dcfce7;
+    --purple:#8b5cf6;
+    --purple-soft:#ede9fe;
+    --yellow:#f59e0b;
+    --yellow-soft:#fef3c7;
+    --pink:#ec4899;
+    --pink-soft:#fce7f3;
+    --cyan:#06b6d4;
+    --cyan-soft:#cffafe;
+    --text:#1a2238;
+    --text-2:#5b6478;
+    --text-3:#9aa3b6;
+    --line:#eef0f6;
+    --shadow:0 6px 20px rgba(20,30,80,.06);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;}
+  html,body{margin:0;padding:0;background:#dfe4ee;color:var(--text);}
+  button,input,textarea,select{font-family:inherit;}
+  body{display:flex;justify-content:center;min-height:100vh;}
+
+  .phone{
+    width:100%;max-width:420px;min-height:100vh;background:var(--bg);
+    position:relative;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,.08);
+  }
+  .status-bar{height:38px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600;color:#fff;}
+  .status-bar.dark{color:var(--text);}
+  .status-bar .right{display:flex;gap:6px;align-items:center;}
+
+  .page{display:none;padding-bottom:110px;}
+  .page.active{display:block;}
+  .section-title{display:flex;justify-content:space-between;align-items:center;padding:18px 20px 10px;}
+  .section-title h3{margin:0;font-size:17px;}
+  .section-title .more{font-size:13px;color:var(--text-3);cursor:pointer;}
+
+  /* ============ 首页 ============ */
+  .hero{
+    background:linear-gradient(160deg,#3b6cff 0%,#6f8dff 100%);
+    color:#fff;padding:0 20px 36px;border-radius:0 0 28px 28px;
+    position:relative;overflow:hidden;
+  }
+  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;background:rgba(255,255,255,.08);border-radius:50%;}
+  .hero::before{content:"";position:absolute;left:-30px;bottom:-50px;width:140px;height:140px;background:rgba(255,255,255,.06);border-radius:50%;}
+  .hero-top{display:flex;justify-content:space-between;align-items:center;padding-top:6px;position:relative;z-index:2;}
+  .hero-top .greet{font-size:18px;font-weight:600;line-height:1.4;}
+  .hero-top .name{font-size:22px;font-weight:700;margin-top:2px;}
+  .avatar{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;}
+  .health-card{
+    margin-top:22px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);
+    backdrop-filter:blur(10px);border-radius:20px;padding:18px;display:flex;justify-content:space-between;align-items:center;
+    position:relative;z-index:2;cursor:pointer;transition:.2s;
+  }
+  .health-card:active{transform:scale(.98);}
+  .score{display:flex;flex-direction:column;}
+  .score .label{font-size:13px;opacity:.85;}
+  .score .num{font-size:38px;font-weight:700;line-height:1;margin-top:4px;}
+  .score .tag{display:inline-block;margin-top:6px;background:#22c55e;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;}
+  .ring{
+    width:78px;height:78px;border-radius:50%;
+    background:conic-gradient(#fff 0 78%, rgba(255,255,255,.25) 78% 100%);
+    display:flex;align-items:center;justify-content:center;position:relative;
+  }
+  .ring::before{content:"";position:absolute;inset:6px;background:#5878ff;border-radius:50%;}
+  .ring span{position:relative;font-weight:700;font-size:15px;}
+
+  /* 数据卡片 */
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px;margin-top:-18px;position:relative;z-index:3;}
+  .stat-card{background:#fff;border-radius:18px;padding:14px;box-shadow:var(--shadow);cursor:pointer;transition:.2s;}
+  .stat-card:active{transform:scale(.97);}
+  .stat-card .head{display:flex;justify-content:space-between;align-items:center;}
+  .stat-card .head .t{font-size:13px;color:var(--text-2);}
+  .stat-card .head .badge{font-size:10px;padding:2px 6px;border-radius:6px;background:var(--primary-soft);color:var(--primary);}
+  .stat-card .num{font-size:24px;font-weight:700;margin-top:6px;}
+  .stat-card .sub{font-size:11px;color:var(--text-3);margin-top:2px;}
+  .stat-card.c-a .badge{background:var(--accent-soft);color:var(--accent);}
+  .stat-card.c-b .badge{background:var(--purple-soft);color:var(--purple);}
+  .stat-card.c-c .badge{background:var(--yellow-soft);color:var(--yellow);}
+
+  /* 趋势图卡片 */
+  .chart-card{margin:16px;background:#fff;border-radius:20px;padding:16px;box-shadow:var(--shadow);}
+  .chart-card .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .chart-card .tabs{display:flex;background:#f4f6fb;border-radius:10px;padding:3px;}
+  .chart-card .tabs span{font-size:11px;padding:5px 10px;border-radius:8px;color:var(--text-2);cursor:pointer;}
+  .chart-card .tabs span.on{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  #miniChart{width:100% !important;height:140px !important;}
+
+  /* 健康提醒 */
+  .tips{margin:16px;background:linear-gradient(135deg,#fff,#f7f3ff);border-radius:20px;padding:16px;box-shadow:var(--shadow);border:1px solid #efe9ff;}
+  .tips h4{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:6px;}
+  .tips p{margin:0;font-size:13px;color:var(--text-2);line-height:1.6;}
+
+  /* 最近记录 */
+  .recent-card{margin:0 16px 16px;background:#fff;border-radius:20px;padding:8px 16px;box-shadow:var(--shadow);}
+  .recent-empty{text-align:center;padding:30px 10px;color:var(--text-3);font-size:13px;}
+
+  .articles{padding:0 16px;}
+  .article{display:flex;background:#fff;border-radius:16px;padding:12px;box-shadow:var(--shadow);margin-bottom:10px;gap:12px;cursor:pointer;}
+  .article:active{transform:scale(.99);}
+  .article .thumb{width:72px;height:72px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:30px;}
+  .article .body h5{margin:0;font-size:14px;}
+  .article .body p{margin:6px 0 0;font-size:12px;color:var(--text-3);}
+  .article .body .meta{margin-top:6px;font-size:11px;color:var(--text-3);}
+
+  /* ============ 日历页 ============ */
+  .cal-header{padding:20px;background:#fff;border-radius:0 0 24px 24px;box-shadow:var(--shadow);}
+  .cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .cal-nav .month{font-size:18px;font-weight:700;}
+  .cal-nav .arrow{width:32px;height:32px;border-radius:10px;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;}
+  .weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;color:var(--text-3);margin-bottom:8px;}
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .day{
+    aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:14px;
+    border-radius:12px;color:var(--text);cursor:pointer;position:relative;transition:.15s;
+  }
+  .day:active{transform:scale(.92);}
+  .day.other{color:var(--text-3);opacity:.4;}
+  .day.today{background:var(--primary);color:#fff;font-weight:600;}
+  .day.selected{outline:2px solid var(--primary);}
+  .day .dots{display:flex;gap:2px;position:absolute;bottom:5px;}
+  .day .dot{width:4px;height:4px;border-radius:50%;}
+  .dot.jerk{background:var(--accent);}
+  .dot.sex{background:var(--primary);}
+  .dot.night{background:var(--purple);}
+  .dot.pee{background:var(--yellow);}
+  .dot.sport{background:var(--green);}
+  .dot.sleep{background:var(--cyan);}
+  .dot.mood{background:var(--pink);}
+  .dot.exam{background:#64748b;}
+  .day.has-record{background:#f4f6fb;}
+  .day.today.has-record{background:var(--primary);}
+
+  .legend{padding:14px 20px;display:flex;flex-wrap:wrap;gap:10px 14px;font-size:11px;color:var(--text-2);}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
+
+  .day-detail{margin:6px 16px 0;background:#fff;border-radius:20px;padding:16px;box-shadow:var(--shadow);}
+  .day-detail h4{margin:0 0 12px;font-size:15px;display:flex;justify-content:space-between;align-items:center;}
+  .day-detail h4 .date{color:var(--text-3);font-size:12px;font-weight:400;}
+  .record-item{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);}
+  .record-item:last-child{border-bottom:none;}
+  .record-item .ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-right:12px;font-size:16px;}
+  .record-item .info{flex:1;}
+  .record-item .info .t{font-size:14px;}
+  .record-item .info .s{font-size:11px;color:var(--text-3);margin-top:2px;}
+  .record-item .time{font-size:12px;color:var(--text-3);}
+  .record-item .del{font-size:14px;color:var(--text-3);padding:6px 8px;cursor:pointer;}
+  .record-item .del:active{color:var(--accent);}
+  .ic.c-jerk{background:var(--accent-soft);color:var(--accent);}
+  .ic.c-sex{background:var(--primary-soft);color:var(--primary);}
+  .ic.c-night{background:var(--purple-soft);color:var(--purple);}
+  .ic.c-pee{background:var(--yellow-soft);color:var(--yellow);}
+  .ic.c-sport{background:var(--green-soft);color:var(--green);}
+  .ic.c-sleep{background:var(--cyan-soft);color:var(--cyan);}
+  .ic.c-mood{background:var(--pink-soft);color:var(--pink);}
+  .ic.c-exam{background:#e2e8f0;color:#475569;}
+
+  /* ============ 数据/打卡页 ============ */
+  .punch-header{padding:24px 20px 16px;background:linear-gradient(135deg,#ff7a59,#ffa17a);color:#fff;border-radius:0 0 24px 24px;}
+  .punch-header h2{margin:0;font-size:22px;}
+  .punch-header p{margin:6px 0 16px;font-size:13px;opacity:.92;}
+  .streak{display:flex;justify-content:space-between;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:12px;}
+  .streak .item{flex:1;text-align:center;}
+  .streak .item .n{font-size:22px;font-weight:700;}
+  .streak .item .l{font-size:11px;opacity:.9;margin-top:2px;}
+  .streak .divider{width:1px;background:rgba(255,255,255,.25);margin:0 6px;}
+
+  .punch-list{padding:16px;}
+  .punch-card{
+    background:#fff;border-radius:18px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px;
+    display:flex;align-items:center;
+  }
+  .punch-card .lic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-right:12px;}
+  .punch-card .body{flex:1;}
+  .punch-card .body .t{font-size:15px;font-weight:600;}
+  .punch-card .body .s{font-size:12px;color:var(--text-3);margin-top:2px;}
+  .punch-btn{padding:7px 14px;border-radius:18px;font-size:12px;border:none;font-weight:600;cursor:pointer;}
+  .punch-btn.add{background:var(--primary);color:#fff;}
+  .punch-btn.done{background:var(--green-soft);color:var(--green);}
+
+  /* ============ 总览页 ============ */
+  .overview-head{padding:20px;background:#fff;border-radius:0 0 24px 24px;box-shadow:var(--shadow);}
+  .overview-head h2{margin:0;font-size:20px;}
+  .overview-head .sub{font-size:12px;color:var(--text-3);margin-top:4px;}
+  .seg{display:flex;background:#f4f6fb;border-radius:12px;padding:3px;margin-top:14px;}
+  .seg span{flex:1;text-align:center;padding:7px 0;font-size:12px;color:var(--text-2);border-radius:9px;cursor:pointer;}
+  .seg span.on{background:#fff;color:var(--text);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+
+  .summary-grid{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .sm-card{background:#fff;border-radius:18px;padding:14px;box-shadow:var(--shadow);}
+  .sm-card .lbl{font-size:12px;color:var(--text-2);}
+  .sm-card .v{font-size:22px;font-weight:700;margin-top:6px;}
+  .sm-card .delta{font-size:11px;margin-top:2px;}
+  .delta.up{color:var(--accent);}
+  .delta.down{color:var(--green);}
+
+  .big-chart{margin:0 16px 16px;background:#fff;border-radius:20px;padding:16px;box-shadow:var(--shadow);}
+  .big-chart h4{margin:0 0 10px;font-size:15px;}
+  #weekChart{width:100% !important;height:200px !important;}
+  #pieChart{width:100% !important;height:200px !important;}
+  #radarChart{width:100% !important;height:300px !important;}
+  #trendChart{width:100% !important;height:200px !important;}
+  /* 热力图 */
+  .heatmap-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-top:8px;}
+  .heat-cell{aspect-ratio:1;border-radius:4px;background:#f0f2f7;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-3);transition:.15s;}
+  .heat-cell:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(59,108,255,.3);}
+  .heat-cell.l1{background:#dbeafe;}
+  .heat-cell.l2{background:#93c5fd;color:#fff;}
+  .heat-cell.l3{background:#3b82f6;color:#fff;}
+  .heat-cell.l4{background:#1d4ed8;color:#fff;}
+  .heat-cell.today{outline:2px solid #ff7a59;}
+  .heat-legend{display:flex;justify-content:flex-end;align-items:center;gap:4px;font-size:10px;color:var(--text-3);margin-top:8px;}
+  .heat-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+
+  /* 勋章 */
+  .medal-row{margin:0 16px;display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none;}
+  .medal-row::-webkit-scrollbar{display:none;}
+  .medal-card{flex:0 0 88px;background:#fff;border-radius:16px;padding:12px 6px;text-align:center;box-shadow:var(--shadow);cursor:pointer;transition:.2s;}
+  .medal-card:active{transform:scale(.94);}
+  .medal-card .em{font-size:32px;display:block;line-height:1;filter:grayscale(1);opacity:.35;}
+  .medal-card.unlocked .em{filter:none;opacity:1;}
+  .medal-card .nm{font-size:11px;margin-top:6px;color:var(--text-2);font-weight:600;line-height:1.3;}
+  .medal-card .lk{font-size:10px;color:var(--text-3);margin-top:2px;}
+  .medal-card.unlocked{background:linear-gradient(135deg,#fff8e8,#fff);border:1px solid #fde68a;}
+
+  /* 勋章详情 modal */
+  .medal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0;}
+  .medal-cell{background:#f7f8fc;border-radius:14px;padding:14px 6px;text-align:center;border:2px solid transparent;}
+  .medal-cell.unlocked{background:linear-gradient(135deg,#fff8e8,#fff3c4);border-color:#fde68a;}
+  .medal-cell .em{font-size:36px;display:block;line-height:1;filter:grayscale(1);opacity:.3;}
+  .medal-cell.unlocked .em{filter:none;opacity:1;}
+  .medal-cell .nm{font-size:12px;margin-top:6px;font-weight:600;color:var(--text);}
+  .medal-cell .desc{font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.3;}
+  .medal-cell .diff{display:inline-block;font-size:9px;padding:1px 5px;border-radius:6px;margin-top:4px;background:#e8efff;color:#3b6cff;}
+  .medal-cell.diff-hard .diff{background:#fee2e2;color:#ef4444;}
+  .medal-cell.diff-mid .diff{background:#fef3c7;color:#f59e0b;}
+
+  .insight{margin:0 16px 16px;background:linear-gradient(135deg,#e8efff,#fff);border-radius:20px;padding:16px;border:1px solid #e6edff;}
+  .insight h4{margin:0 0 8px;font-size:14px;color:var(--primary);}
+  .insight ul{margin:0;padding-left:18px;font-size:13px;color:var(--text-2);line-height:1.7;}
+
+  /* ============ 底部 Tab ============ */
+  .tabbar{
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+    background:#fff;display:flex;justify-content:space-around;align-items:center;
+    padding:8px 0 16px;border-top:1px solid var(--line);
+    box-shadow:0 -4px 20px rgba(0,0,0,.04);z-index:50;
+  }
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;color:var(--text-3);font-size:11px;cursor:pointer;padding:6px 0;}
+  .tab.active{color:var(--primary);}
+  .tab .ic{font-size:20px;margin-bottom:2px;}
+  .tab.placeholder{visibility:hidden;}
+
+  /* FAB */
+  .fab{
+    position:fixed;bottom:42px;left:50%;transform:translateX(-50%);
+    width:58px;height:58px;border-radius:50%;
+    background:linear-gradient(135deg,#3b6cff,#6f8dff);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:300;
+    box-shadow:0 8px 22px rgba(59,108,255,.45);z-index:60;cursor:pointer;
+    transition:transform .25s;
+  }
+  .fab:active{transform:translateX(-50%) scale(.92);}
+  .fab.rotated{transform:translateX(-50%) rotate(45deg);}
+
+  /* 录入弹窗 */
+  .mask{position:fixed;inset:0;background:rgba(20,30,60,.5);z-index:100;display:none;justify-content:center;align-items:flex-end;}
+  .mask.show{display:flex;}
+  .sheet{
+    width:100%;max-width:420px;background:#fff;border-radius:24px 24px 0 0;
+    padding:18px 18px 28px;animation:slideUp .25s ease;max-height:90vh;overflow-y:auto;
+  }
+  @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  .sheet h3{margin:0 0 6px;font-size:18px;text-align:center;}
+  .sheet .sub{text-align:center;font-size:12px;color:var(--text-3);margin-bottom:18px;}
+  .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+  .type-item{
+    background:#f7f8fc;border-radius:14px;padding:12px 4px;text-align:center;cursor:pointer;
+    border:2px solid transparent;transition:.2s;
+  }
+  .type-item.active{border-color:var(--primary);background:var(--primary-soft);}
+  .type-item .ti{font-size:24px;}
+  .type-item .tl{font-size:11px;margin-top:4px;color:var(--text-2);}
+  .form-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px;gap:10px;}
+  .form-row .k{color:var(--text-2);flex-shrink:0;}
+  .form-row .v{color:var(--text);text-align:right;}
+  .form-row select,.form-row input,.form-row textarea{
+    border:none;background:#f4f6fb;border-radius:8px;padding:8px 10px;font-size:13px;color:var(--text);
+    text-align:right;outline:none;font-family:inherit;
+  }
+  .form-row input[type="number"]{width:90px;text-align:center;}
+  .form-row input[type="time"]{width:120px;text-align:center;}
+  .form-row textarea{width:60%;min-height:36px;resize:none;text-align:left;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;flex:1;}
+  .chip{padding:6px 12px;border-radius:14px;background:#f4f6fb;color:var(--text-2);font-size:12px;cursor:pointer;border:1px solid transparent;}
+  .chip.on{background:var(--primary-soft);color:var(--primary);border-color:var(--primary);}
+  .save-btn{
+    width:100%;margin-top:16px;padding:14px;border:none;border-radius:14px;
+    background:linear-gradient(135deg,#3b6cff,#6f8dff);color:#fff;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .save-btn:active{opacity:.85;}
+  .close-x{position:absolute;right:18px;top:14px;font-size:22px;color:var(--text-3);cursor:pointer;line-height:1;width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
+  .sheet-wrap{position:relative;}
+
+  /* toast */
+  .toast{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(0,0,0,.78);color:#fff;padding:12px 22px;border-radius:14px;font-size:14px;
+    z-index:200;display:none;
+  }
+  .toast.show{display:block;animation:fade .2s;}
+  @keyframes fade{from{opacity:0;}to{opacity:1;}}
+
+  /* 文章详情/我的弹窗 */
+  .modal{position:fixed;inset:0;background:rgba(20,30,60,.5);z-index:110;display:none;justify-content:center;align-items:center;}
+  .modal.show{display:flex;}
+  .modal-box{width:90%;max-width:380px;max-height:80vh;overflow-y:auto;background:#fff;border-radius:20px;padding:20px;}
+  .modal-box h3{margin:0 0 10px;font-size:17px;}
+  .modal-box p{font-size:13px;color:var(--text-2);line-height:1.7;margin:8px 0;}
+  .modal-box .close-line{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+  .modal-box .close-line button{border:none;background:#f4f6fb;padding:8px 16px;border-radius:10px;cursor:pointer;font-size:13px;}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- ============ 首页 ============ -->
+  <div class="page active" id="page-home">
+    <div class="status-bar"><span>9:41</span><span class="right">📶 📡 🔋</span></div>
+    <div class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="greet" id="greet">集帅，今天也要好好爱自己 ❤️</div>
+        </div>
+        <div class="avatar" onclick="openProfile()">👨</div>
+      </div>
+      <div class="health-card">
+        <div class="score">
+          <div class="label">本周健康指数</div>
+          <div class="num" id="healthScore">86</div>
+          <div class="tag" id="healthTag">状态良好</div>
+        </div>
+        <div class="ring" id="healthRing"><span id="healthPct">78%</span></div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card" onclick="filterRecent('jerk')">
+        <div class="head"><span class="t">本周解压</span><span class="badge" id="badge-jerk">+0</span></div>
+        <div class="num"><span id="cnt-jerk">0</span> 次</div>
+        <div class="sub">健康频率范围内</div>
+      </div>
+      <div class="stat-card c-a" onclick="filterRecent('sex')">
+        <div class="head"><span class="t">本周亲密</span><span class="badge">规律</span></div>
+        <div class="num"><span id="cnt-sex">0</span> 次</div>
+        <div class="sub">质量评分良好</div>
+      </div>
+      <div class="stat-card c-b" onclick="filterRecent('night')">
+        <div class="head"><span class="t">夜间起夜</span><span class="badge">正常</span></div>
+        <div class="num"><span id="cnt-night">0</span> 次</div>
+        <div class="sub">日均，睡眠良好</div>
+      </div>
+      <div class="stat-card c-c" onclick="filterRecent('pee')">
+        <div class="head"><span class="t">排尿异常</span><span class="badge">关注</span></div>
+        <div class="num"><span id="cnt-pee-abn">0</span> 次</div>
+        <div class="sub">建议补充水分</div>
+      </div>
+    </div>
+
+    <div class="section-title"><h3>🏆 我的勋章 <span style="font-size:12px;color:var(--text-3);font-weight:400;margin-left:6px;" id="medalCount">0/0</span></h3><span class="more" onclick="openMedals()">查看全部 ›</span></div>
+    <div class="medal-row" id="medalRow"></div>
+
+    <div class="section-title"><h3>📝 今日记录</h3><span class="more" onclick="switchTab('data')">查看更多 ›</span></div>
+    <div class="recent-card" id="recentList"></div>
+
+    <div class="tips" onclick="rotateTip()" style="cursor:pointer;">
+      <h4>🩺 今日健康建议 <span style="font-size:11px;color:var(--text-3);font-weight:400;float:right;">点击换一条 🔄</span></h4>
+      <p id="tipText" style="line-height:1.7;">基于昨天的数据为你分析中...</p>
+    </div>
+
+    <div class="section-title"><h3>📰 男性健康</h3><span class="more" onclick="openArticleList()">更多 ›</span></div>
+    <div class="articles">
+      <div class="article" onclick="openArticle(0)">
+        <div class="thumb" style="background:var(--primary-soft);">🥦</div>
+        <div class="body">
+          <h5>前列腺保健的 5 个饮食习惯</h5>
+          <p>番茄红素、锌、欧米伽 3 是关键营养素…</p>
+          <div class="meta">健康饮食 · 3 分钟阅读</div>
+        </div>
+      </div>
+      <div class="article" onclick="openArticle(1)">
+        <div class="thumb" style="background:var(--accent-soft);">💪</div>
+        <div class="body">
+          <h5>30 岁后男性必做的 4 个体检项目</h5>
+          <p>从 PSA 到睾酮水平，定期检查很重要…</p>
+          <div class="meta">体检指南 · 5 分钟阅读</div>
+        </div>
+      </div>
+      <div class="article" onclick="openArticle(2)">
+        <div class="thumb" style="background:var(--purple-soft);">🧘</div>
+        <div class="body">
+          <h5>盆底肌训练：男人也需要凯格尔运动</h5>
+          <p>提高性能力、改善排尿问题的简单训练…</p>
+          <div class="meta">运动训练 · 4 分钟阅读</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 数据页（日历 + 总览 合并） ============ -->
+  <div class="page" id="page-data">
+    <div class="status-bar dark"><span>9:41</span><span class="right">📶 📡 🔋</span></div>
+
+    <!-- 顶部分段：日历 / 总览 -->
+    <div style="padding:18px 20px 12px;background:#fff;border-radius:0 0 24px 24px;box-shadow:var(--shadow);">
+      <h2 style="margin:0 0 10px;font-size:20px;">健康数据</h2>
+      <div class="seg" id="dataSeg">
+        <span class="on" onclick="setDataView(this,'cal')">📅 日历</span>
+        <span onclick="setDataView(this,'ov')">📊 总览</span>
+      </div>
+    </div>
+
+    <!-- 日历视图 -->
+    <div id="dataCalView">
+      <div style="margin:14px 16px 0;background:#fff;border-radius:20px;padding:16px;box-shadow:var(--shadow);">
+        <div class="cal-nav">
+          <div class="arrow" onclick="changeMonth(-1)">‹</div>
+          <div class="month" id="calMonth">2026 年 4 月</div>
+          <div class="arrow" onclick="changeMonth(1)">›</div>
+        </div>
+        <div class="weekdays">
+          <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+        </div>
+        <div class="days" id="calDays"></div>
+        <div class="legend" style="padding:14px 0 0;">
+          <span><i style="background:var(--accent);"></i>解压</span>
+          <span><i style="background:var(--primary);"></i>亲密</span>
+          <span><i style="background:var(--purple);"></i>起夜</span>
+          <span><i style="background:var(--yellow);"></i>排尿</span>
+          <span><i style="background:var(--green);"></i>运动</span>
+          <span><i style="background:var(--cyan);"></i>睡眠</span>
+          <span><i style="background:var(--pink);"></i>情绪</span>
+        </div>
+      </div>
+      <div class="day-detail">
+        <h4>当日记录 <span class="date" id="selDate">—</span></h4>
+        <div id="dayList"></div>
+      </div>
+    </div>
+
+    <!-- 总览视图 -->
+    <div id="dataOvView" style="display:none;">
+      <div style="padding:14px 16px 0;">
+        <div class="seg" id="overviewSeg">
+          <span onclick="setOverviewRange(this,'week')">本周</span>
+          <span class="on" onclick="setOverviewRange(this,'month')">本月</span>
+          <span onclick="setOverviewRange(this,'quarter')">近三月</span>
+          <span onclick="setOverviewRange(this,'year')">全年</span>
+        </div>
+      </div>
+      <div class="summary-grid" id="ovSummary"></div>
+      <div class="big-chart">
+        <h4>📅 活跃热力图 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;">最近 30 天每天记录数</span></h4>
+        <div id="heatmap"></div>
+      </div>
+      <div class="big-chart">
+        <h4>📊 健康维度雷达 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;">本期各维度活跃度</span></h4>
+        <div style="padding:0 8px;"><canvas id="radarChart"></canvas></div>
+      </div>
+      <div class="big-chart">
+        <h4>📈 趋势对比 <span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px;">解压 vs 运动 vs 起夜</span></h4>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="insight">
+        <h4>🔍 智能洞察</h4>
+        <ul id="insightList"></ul>
+      </div>
+    </div>
+    <div style="height:30px;"></div>
+  </div>
+
+  <!-- ============ 底部 Tab + FAB ============ -->
+  <div class="tabbar">
+    <div class="tab active" data-page="home" onclick="switchTab('home')"><div class="ic">🏠</div><div>首页</div></div>
+    <div class="tab placeholder"><div class="ic">+</div><div>记录</div></div>
+    <div class="tab" data-page="data" onclick="switchTab('data')"><div class="ic">📊</div><div>数据</div></div>
+  </div>
+  <div class="fab" id="fab" onclick="openSheet()">+</div>
+
+  <!-- 录入弹窗 -->
+  <div class="mask" id="mask">
+    <div class="sheet" id="sheet">
+      <div class="sheet-wrap">
+        <span class="close-x" onclick="closeSheet()">×</span>
+        <h3>快速记录</h3>
+        <div class="sub">选择想要记录的健康类型</div>
+      </div>
+      <div class="type-grid" id="typeGrid"></div>
+      <div id="formArea"></div>
+      <button class="save-btn" onclick="saveRecord()">保存记录</button>
+    </div>
+  </div>
+
+  <!-- 文章/个人中心弹窗 -->
+  <div class="modal" id="modal">
+    <div class="modal-box" id="modalBox"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* =========================================================
+   类型定义
+   ========================================================= */
+const TYPES = [
+  {key:'jerk',  name:'解压记录', emoji:'✋', color:'jerk',  cls:'c-jerk',  tip:'追踪频率与身体反馈'},
+  {key:'sex',   name:'性生活',   emoji:'❤️', color:'sex',   cls:'c-sex',   tip:'记录频率、质量与感受'},
+  {key:'night', name:'起夜记录', emoji:'🌙', color:'night', cls:'c-night', tip:'监测夜间排尿次数'},
+  {key:'pee',   name:'排尿监测', emoji:'💧', color:'pee',   cls:'c-pee',   tip:'科学评估前列腺/泌尿健康'},
+  {key:'sport', name:'运动打卡', emoji:'🏃', color:'sport', cls:'c-sport', tip:'提升体能与精力'},
+  {key:'sleep', name:'睡眠时长', emoji:'😴', color:'sleep', cls:'c-sleep', tip:'充足睡眠是健康之本'},
+  {key:'mood',  name:'情绪状态', emoji:'🧠', color:'mood',  cls:'c-mood',  tip:'心理健康同样重要'}
+];
+
+/* =========================================================
+   数据存储 (localStorage)
+   ========================================================= */
+const LS_KEY = 'tayu_records_v1';
+let records = [];
+function loadRecords(){
+  try{ records = JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ records = []; }
+  // 注：新用户保持空状态，不再自动注入示例数据
+}
+function saveRecords(){ localStorage.setItem(LS_KEY, JSON.stringify(records)); }
+function seedDemo(){ /* 已弃用 */ }
+function addRecord(rec){
+  rec.id = Date.now();
+  records.unshift(rec);
+  saveRecords();
+}
+function deleteRecord(id){
+  records = records.filter(r=>r.id!==id);
+  saveRecords();
+}
+
+/* =========================================================
+   工具
+   ========================================================= */
+function getType(key){ return TYPES.find(t=>t.key===key); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(d){ return d.toISOString().slice(0,10); }
+function fmtCN(dStr){
+  const d = new Date(dStr);
+  const w = ['日','一','二','三','四','五','六'][d.getDay()];
+  return `${d.getMonth()+1} 月 ${d.getDate()} 日 · 周${w}`;
+}
+function recordSummary(r){
+  const d = r.data || {};
+  switch(r.type){
+    case 'jerk':  return `时长 ${d.duration||'-'} 分钟 · ${d.mood||''}`;
+    case 'sex':   return `时长 ${d.duration||'-'} 分钟 · 评分 ${d.quality||'-'}/5${d.protected?' · 已防护':''}`;
+    case 'night': return `起夜 ${d.count||1} 次 · 入睡${d.fallback||'-'}`;
+    case 'pee':{
+      const sym = (d.symptoms||[]).length;
+      const risk = peeRisk(d);
+      return `日 ${d.dayCount||'-'} 次 · ${d.color||'-'} · 尿流${d.stream||'-'}${sym?' · '+sym+' 项症状':''}${risk.level!=='正常'?' · ⚠️ '+risk.level:''}`;
+    }
+    case 'sport': return `${d.kind||'运动'} ${d.minutes||'-'} 分钟`;
+    case 'sleep':{
+      const h = d.hours || calcSleepHours(d.bedtime,d.waketime);
+      const q = autoSleepQuality(h);
+      return `${d.bedtime||'-'} → ${d.waketime||'-'} · ${h} 小时 · ${q.label}`;
+    }
+    case 'mood':  return `${d.mood||''} · 压力 ${d.stress||'-'}/5`;
+    default: return '';
+  }
+}
+
+/* 排尿风险计算（科学化） */
+function peeRisk(d){
+  let score = 0;
+  const sym = d.symptoms || [];
+  const dayCount = d.dayCount || 0;
+  if(dayCount>=10) score += 2;
+  else if(dayCount<=3) score += 1;
+  if(d.color==='深黄' || d.color==='茶色') score += 1;
+  if(d.color==='带血' || d.color==='浑浊') score += 3;
+  if(d.stream && d.stream!=='正常') score += 2;
+  score += sym.length;
+  if(d.urgency>=3) score += 2;
+  if(d.pain>=2) score += 3;
+  let level='正常', color='#22c55e', advice='指标良好，继续保持充足饮水';
+  if(score>=2 && score<=4){ level='轻度关注'; color='#f59e0b'; advice='建议增加饮水、减少久坐，观察 1-2 周'; }
+  if(score>=5 && score<=7){ level='中度异常'; color='#ff7a59'; advice='症状偏多，建议尽早就医做尿常规与前列腺检查'; }
+  if(score>=8){ level='高度警示'; color='#ef4444'; advice='⚠️ 多项症状，请尽快泌尿科就诊'; }
+  return {score, level, color, advice};
+}
+
+/* =========================================================
+   Tab 切换
+   ========================================================= */
+function switchTab(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.tab[data-page="${name}"]`).classList.add('active');
+  window.scrollTo(0,0);
+  if(name==='home') { renderHome(); }
+  if(name==='data') {
+    if(dataView==='cal'){ renderCalendar(); selectDay(currentSelDate||todayStr()); }
+    else { renderOverview(); setTimeout(initBigCharts,30); }
+  }
+}
+let dataView = 'cal';
+function setDataView(el,v){
+  el.parentNode.querySelectorAll('span').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on');
+  dataView = v;
+  document.getElementById('dataCalView').style.display = v==='cal' ? 'block' : 'none';
+  document.getElementById('dataOvView').style.display  = v==='ov'  ? 'block' : 'none';
+  if(v==='cal'){ renderCalendar(); selectDay(currentSelDate||todayStr()); }
+  else { renderOverview(); setTimeout(initBigCharts,30); }
+}
+
+/* =========================================================
+   Sheet (FAB 录入)
+   ========================================================= */
+let curType = 'jerk';
+function openSheet(type){
+  curType = type || 'jerk';
+  document.getElementById('mask').classList.add('show');
+  document.getElementById('fab').classList.add('rotated');
+  renderTypeGrid();
+  renderForm();
+}
+function closeSheet(){
+  document.getElementById('mask').classList.remove('show');
+  document.getElementById('fab').classList.remove('rotated');
+}
+document.getElementById('mask').addEventListener('click',e=>{if(e.target.id==='mask') closeSheet();});
+
+function renderTypeGrid(){
+  const g = document.getElementById('typeGrid');
+  g.innerHTML = TYPES.map(t=>`
+    <div class="type-item ${t.key===curType?'active':''}" onclick="selectType('${t.key}')">
+      <div class="ti">${t.emoji}</div><div class="tl">${t.name}</div>
+    </div>
+  `).join('');
+}
+function selectType(key){
+  curType = key;
+  renderTypeGrid();
+  renderForm();
+}
+
+let formState = {};
+function renderForm(){
+  const now = new Date();
+  const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  formState = { date: todayStr(), time: t, data: {}, note: '' };
+  const f = document.getElementById('formArea');
+  let body = '';
+  body += `<div class="form-row"><span class="k">日期</span><input type="date" value="${formState.date}" onchange="formState.date=this.value"></div>`;
+  body += `<div class="form-row"><span class="k">时间</span><input type="time" value="${formState.time}" onchange="formState.time=this.value"></div>`;
+
+  switch(curType){
+    case 'jerk':
+      formState.data = {duration:8, mood:'😊 满意'};
+      body += rowNumber('时长(分钟)','duration',8);
+      body += rowChip('感受','mood',['😄 很爽','😊 满意','😐 一般','😶 普通'],'😊 满意');
+      break;
+    case 'sex':
+      formState.data = {duration:20, quality:4, protected:true};
+      body += rowNumber('时长(分钟)','duration',20);
+      body += rowChip('质量评分','quality',[1,2,3,4,5],4);
+      body += rowChip('安全防护','protected',[{k:true,v:'是'},{k:false,v:'否'}],true);
+      break;
+    case 'night':
+      formState.data = {count:1, fallback:'容易'};
+      body += rowNumber('起夜次数','count',1);
+      body += rowChip('再次入睡','fallback',['容易','一般','困难'],'容易');
+      break;
+    case 'pee':
+      formState.data = {dayCount:6, color:'淡黄', stream:'正常', symptoms:[], urgency:1, pain:0};
+      body += rowNumber('全天排尿次数','dayCount',6);
+      body += rowChip('尿液颜色','color',['透明','淡黄','深黄','茶色','浑浊','带血'],'淡黄');
+      body += rowChip('尿流情况','stream',['正常','变细','分叉','中断','费力','滴沥不尽'],'正常');
+      body += rowChip('尿急程度','urgency',[{k:0,v:'无'},{k:1,v:'轻微'},{k:2,v:'明显'},{k:3,v:'强烈'}],1);
+      body += rowChip('排尿疼痛/灼热','pain',[{k:0,v:'无'},{k:1,v:'轻微'},{k:2,v:'明显'},{k:3,v:'剧烈'}],0);
+      body += rowMulti('伴随症状(可多选)','symptoms',
+        ['泡沫多','尿后滴沥','下腹坠胀','会阴酸胀','腰背酸痛','排尿等待','尿不尽感','尿频','尿味异常'], []);
+      break;
+    case 'sport':
+      formState.data = {kind:'跑步', minutes:30};
+      body += rowChip('运动类型','kind',['跑步','游泳','力量','骑行','瑜伽','其他'],'跑步');
+      body += rowNumber('时长(分钟)','minutes',30);
+      break;
+    case 'sleep':
+      formState.data = {bedtime:'23:30', waketime:'07:00', hours:7.5};
+      body += `<div class="form-row"><span class="k">入睡时间</span><input type="time" value="23:30" oninput="formState.data.bedtime=this.value;updateSleepHours();"></div>`;
+      body += `<div class="form-row"><span class="k">起床时间</span><input type="time" value="07:00" oninput="formState.data.waketime=this.value;updateSleepHours();"></div>`;
+      body += `<div class="form-row"><span class="k">睡眠时长</span><span class="v" id="sleepHoursLabel" style="font-weight:600;color:var(--primary);">7.5 小时</span></div>`;
+      body += `<div class="form-row"><span class="k">质量评估</span><span class="v" id="sleepQualityLabel" style="font-weight:600;">良好 😴</span></div>`;
+      break;
+    case 'mood':
+      formState.data = {mood:'😄 开心', stress:2};
+      body += rowChip('心情','mood',['😄 开心','😊 平静','😐 一般','😞 低落','😣 焦虑'],'😄 开心');
+      body += rowChip('压力(0-5)','stress',[0,1,2,3,4,5],2);
+      break;
+  }
+  body += `<div class="form-row" style="align-items:flex-start;"><span class="k">备注</span><textarea placeholder="可选，记录今天的感受…" oninput="formState.note=this.value"></textarea></div>`;
+  if(curType==='pee'){
+    body += `<div id="peeRiskBox" style="margin-top:14px;padding:12px 14px;border-radius:14px;border:1px solid;background:#22c55e18;border-color:#22c55e66;"><div style="font-weight:600;color:#22c55e;font-size:13px;">⚕️ 健康评估：正常（评分 0）</div><div style="font-size:12px;color:#5b6478;margin-top:4px;line-height:1.5;">指标良好，继续保持充足饮水</div></div>`;
+  }
+  f.innerHTML = body;
+  if(curType==='pee') setTimeout(refreshPeeRisk,0);
+}
+function rowNumber(label,key,def,step){
+  return `<div class="form-row"><span class="k">${label}</span><input type="number" step="${step||1}" value="${def}" oninput="formState.data['${key}']=parseFloat(this.value)||0;if(window.curType==='pee')refreshPeeRisk();"></div>`;
+}
+function rowText(label,key,def){
+  return `<div class="form-row"><span class="k">${label}</span><input type="text" value="${def}" oninput="formState.data['${key}']=this.value" style="text-align:right;width:60%;"></div>`;
+}
+function rowChip(label,key,options,def){
+  const isObj = typeof options[0]==='object' && options[0]!==null && 'k' in options[0];
+  const items = isObj ? options : options.map(o=>({k:o,v:String(o)}));
+  return `<div class="form-row"><span class="k">${label}</span><div class="chip-row" data-key="${key}" data-mode="single">${items.map(o=>{
+    const v = encodeURIComponent(JSON.stringify(o.k));
+    const on = JSON.stringify(o.k)===JSON.stringify(def) ? 'on' : '';
+    return `<div class="chip ${on}" data-val="${v}">${escapeHtml(o.v)}</div>`;
+  }).join('')}</div></div>`;
+}
+function pickChip(){} // 兼容遗留调用
+function rowMulti(label,key,options,def){
+  return `<div class="form-row" style="align-items:flex-start;"><span class="k">${label}</span><div class="chip-row" data-key="${key}" data-mode="multi">${options.map(o=>{
+    const v = encodeURIComponent(JSON.stringify(o));
+    const on = (def||[]).includes(o) ? 'on' : '';
+    return `<div class="chip ${on}" data-val="${v}">${escapeHtml(o)}</div>`;
+  }).join('')}</div></div>`;
+}
+function toggleChip(){} // 兼容遗留调用
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+/* 睡眠时长自动计算（处理跨日，如 23:30 → 07:00） */
+function calcSleepHours(bed, wake){
+  if(!bed || !wake) return 0;
+  const [bh,bm] = bed.split(':').map(Number);
+  const [wh,wm] = wake.split(':').map(Number);
+  let mins = (wh*60+wm) - (bh*60+bm);
+  if(mins<=0) mins += 24*60; // 跨日
+  return Math.round(mins/6)/10; // 保留 1 位小数
+}
+function autoSleepQuality(h){
+  if(h<5) return {label:'严重不足 😣', cls:'#ef4444'};
+  if(h<6.5) return {label:'偏少 😪', cls:'#f59e0b'};
+  if(h<=8.5) return {label:'良好 😴', cls:'#22c55e'};
+  if(h<=10) return {label:'偏多 😶', cls:'#3b82f6'};
+  return {label:'过多 😴', cls:'#8b5cf6'};
+}
+function updateSleepHours(){
+  const h = calcSleepHours(formState.data.bedtime, formState.data.waketime);
+  formState.data.hours = h;
+  const q = autoSleepQuality(h);
+  formState.data.quality = q.label.replace(/[😣😪😴😶]/g,'').trim();
+  const lbl = document.getElementById('sleepHoursLabel');
+  const ql  = document.getElementById('sleepQualityLabel');
+  if(lbl) lbl.textContent = h + ' 小时';
+  if(ql){ ql.textContent = q.label; ql.style.color = q.cls; }
+}
+// 事件委托：统一处理 chip 点击（修复带引号/emoji 的字符串值导致 onclick 失效）
+document.addEventListener('click', function(e){
+  const chip = e.target.closest('.chip');
+  if(!chip || !chip.dataset.val) return;
+  const row = chip.closest('.chip-row');
+  if(!row) return;
+  const key = row.dataset.key;
+  const mode = row.dataset.mode;
+  const val = JSON.parse(decodeURIComponent(chip.dataset.val));
+  if(mode==='single'){
+    row.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    chip.classList.add('on');
+    formState.data[key] = val;
+  } else {
+    chip.classList.toggle('on');
+    const arr = formState.data[key] || [];
+    const i = arr.indexOf(val);
+    if(i>=0) arr.splice(i,1); else arr.push(val);
+    formState.data[key] = arr;
+  }
+  if(curType==='pee') refreshPeeRisk();
+});
+function refreshPeeRisk(){
+  const box = document.getElementById('peeRiskBox');
+  if(!box) return;
+  const r = peeRisk(formState.data);
+  box.style.background = r.color+'18';
+  box.style.borderColor = r.color+'66';
+  box.innerHTML = `<div style="font-weight:600;color:${r.color};font-size:13px;">⚕️ 健康评估：${r.level}（评分 ${r.score}）</div><div style="font-size:12px;color:#5b6478;margin-top:4px;line-height:1.5;">${r.advice}</div>`;
+}
+
+function saveRecord(){
+  const t = getType(curType);
+  const beforeUnlocked = getMedalStatus().filter(m=>m.unlocked).map(m=>m.id);
+  addRecord({type:curType, date:formState.date, time:formState.time, data:{...formState.data}, note:formState.note||''});
+  closeSheet();
+  toast(`✅ 已保存「${t.name}」`);
+  renderHome();
+  if(document.getElementById('page-data').classList.contains('active')){
+    if(dataView==='cal'){ renderCalendar(); selectDay(currentSelDate||todayStr()); }
+    else { renderOverview(); initBigCharts(); }
+  }
+  // 检测新解锁勋章
+  const afterUnlocked = getMedalStatus().filter(m=>m.unlocked);
+  const newOnes = afterUnlocked.filter(m=>!beforeUnlocked.includes(m.id));
+  if(newOnes.length){
+    setTimeout(()=>{
+      const m = newOnes[0];
+      showModal(`
+        <div style="text-align:center;padding:20px 0 10px;">
+          <div style="font-size:30px;color:#f59e0b;font-weight:700;">🎉 新勋章解锁！</div>
+          <div style="font-size:90px;line-height:1;margin:20px 0;animation:fade .6s;">${m.emoji}</div>
+          <h3 style="margin:0;">${m.name}</h3>
+          <p style="color:var(--text-2);margin-top:8px;">${m.desc}</p>
+        </div>
+        <div class="close-line"><button onclick="closeModal()" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#fff;font-weight:600;padding:10px 24px;">太棒了 ✨</button></div>
+      `);
+    }, 600);
+  }
+}
+
+/* =========================================================
+   首页渲染
+   ========================================================= */
+function setGreeting(){
+  document.getElementById('greet').textContent = '集帅，今天也要好好爱自己 ❤️';
+}
+function weekRecords(){
+  const now = new Date();
+  const start = new Date(now); start.setDate(now.getDate()-6);
+  const s = fmtDate(start), e = fmtDate(now);
+  return records.filter(r=>r.date>=s && r.date<=e);
+}
+
+/* =========================================================
+   健康指数计算（满分 100）
+   - 基础分 60，每个维度有上限，避免单项过强拉满
+   - 没有数据时只显示基础分（不再 NaN）
+   ========================================================= */
+function calcHealthScore(wk){
+  const cnt = key => wk.filter(r=>r.type===key).length;
+  const items = []; // 每项 {label, delta, reason}
+
+  // 1) 运动（最多 +15）
+  const sportN = cnt('sport');
+  const sportPts = Math.min(15, sportN*3);
+  items.push({label:'🏃 运动', delta:sportPts, reason:`本周 ${sportN} 次（每次 +3，上限 15）`});
+
+  // 2) 睡眠（最多 +15）
+  const sleepRecs = wk.filter(r=>r.type==='sleep');
+  let sleepPts = 0;
+  sleepRecs.forEach(r=>{
+    const h = r.data.hours || calcSleepHours(r.data.bedtime, r.data.waketime) || 0;
+    if(h>=7 && h<=9) sleepPts += 2;        // 优质睡眠
+    else if(h>=6 && h<10) sleepPts += 1;   // 一般
+    else sleepPts -= 1;                    // 不足或过多
+  });
+  sleepPts = Math.max(-5, Math.min(15, sleepPts));
+  items.push({label:'😴 睡眠', delta:sleepPts, reason:`${sleepRecs.length} 次记录（7-9h +2, 一般 +1, 偏离 -1）`});
+
+  // 3) 情绪（最多 +10）
+  const moodRecs = wk.filter(r=>r.type==='mood');
+  let moodPts = 0;
+  moodRecs.forEach(r=>{
+    const m = r.data.mood || '';
+    if(m.includes('开心')) moodPts += 2;
+    else if(m.includes('平静')) moodPts += 1;
+    else if(m.includes('低落') || m.includes('焦虑')) moodPts -= 1;
+    if((r.data.stress||0) >= 4) moodPts -= 1;
+  });
+  moodPts = Math.max(-5, Math.min(10, moodPts));
+  items.push({label:'🧠 情绪', delta:moodPts, reason:`${moodRecs.length} 次记录（开心 +2, 焦虑 -1, 高压 -1）`});
+
+  // 4) 解压频率（理想 1-3 次/周，过多 -3，过少不扣分）
+  const jerkN = cnt('jerk');
+  let jerkPts = 0;
+  if(jerkN>=1 && jerkN<=3) jerkPts = 5;
+  else if(jerkN===4) jerkPts = 2;
+  else if(jerkN===5) jerkPts = 0;
+  else if(jerkN>=6) jerkPts = -3;
+  items.push({label:'✋ 解压', delta:jerkPts, reason:`本周 ${jerkN} 次（1-3 次最佳 +5，6+ 次 -3）`});
+
+  // 5) 泌尿健康（基于 peeRisk）
+  const peeRecs = wk.filter(r=>r.type==='pee');
+  let peePts = 0;
+  peeRecs.forEach(r=>{
+    const lv = peeRisk(r.data).level;
+    if(lv==='正常') peePts += 2;
+    else if(lv==='轻度关注') peePts -= 2;
+    else if(lv==='中度异常') peePts -= 5;
+    else if(lv==='高度警示') peePts -= 10;
+  });
+  peePts = Math.max(-15, Math.min(10, peePts));
+  items.push({label:'💧 泌尿', delta:peePts, reason:`${peeRecs.length} 次记录（正常 +2, 异常 -2~-10）`});
+
+  // 6) 起夜（每周 0-1 次正常 +5，2-3 -2，>=4 -5）
+  const nightTotal = wk.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
+  let nightPts = 0;
+  if(nightTotal===0) nightPts = 5;
+  else if(nightTotal<=2) nightPts = 3;
+  else if(nightTotal<=4) nightPts = -2;
+  else nightPts = -5;
+  items.push({label:'🌙 夜尿', delta:nightPts, reason:`本周累计 ${nightTotal} 次`});
+
+  // 汇总
+  let score = 60 + items.reduce((a,i)=>a+i.delta, 0);
+  score = Math.max(40, Math.min(100, Math.round(score)));
+
+  let tag, color;
+  if(score>=85){ tag='状态良好'; color='#22c55e'; }
+  else if(score>=70){ tag='正常'; color='#3b82f6'; }
+  else if(score>=55){ tag='一般'; color='#f59e0b'; }
+  else { tag='需关注'; color='#ef4444'; }
+
+  return {score, tag, color, items, base:60};
+}
+
+function showHealthDetail(h){
+  const rows = h.items.map(i=>{
+    const sign = i.delta>0?'+':'';
+    const color = i.delta>0?'#22c55e':i.delta<0?'#ef4444':'#9aa3b6';
+    return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eef0f6;font-size:13px;">
+      <div><div style="font-weight:600;">${i.label} <span style="color:${color};margin-left:6px;">${sign}${i.delta}</span></div><div style="color:var(--text-3);font-size:11px;margin-top:2px;">${i.reason}</div></div>
+    </div>`;
+  }).join('');
+  showModal(`
+    <h3>📊 健康指数明细</h3>
+    <p style="color:var(--text-3);font-size:12px;margin:0 0 14px;">基于本周（最近 7 天）数据动态计算</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#3b6cff,#6f8dff);color:#fff;padding:14px 18px;border-radius:14px;margin-bottom:14px;">
+      <div><div style="font-size:12px;opacity:.85;">综合得分</div><div style="font-size:32px;font-weight:700;line-height:1;margin-top:4px;">${h.score}</div></div>
+      <div style="font-size:13px;background:rgba(255,255,255,.2);padding:4px 12px;border-radius:10px;">${h.tag}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;color:var(--text-2);"><span>基础分</span><span>${h.base}</span></div>
+    ${rows}
+    <div style="margin-top:14px;padding:10px 12px;background:#f7f8fc;border-radius:12px;font-size:11px;color:var(--text-3);line-height:1.6;">
+      💡 健康指数 = 基础 60 + 6 大维度加减分。运动、睡眠等会加分，过度解压、泌尿异常、起夜增多会扣分。最低 40，最高 100。
+    </div>
+    <div class="close-line"><button onclick="closeModal()" style="background:var(--primary);color:#fff;">明白了</button></div>
+  `);
+}
+function renderHome(){
+  setGreeting();
+  const wk = weekRecords();
+  const cnt = key => wk.filter(r=>r.type===key).length;
+  document.getElementById('cnt-jerk').textContent = cnt('jerk');
+  document.getElementById('cnt-sex').textContent  = cnt('sex');
+  // 起夜：周内总次数
+  const nightTotal = wk.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
+  document.getElementById('cnt-night').textContent = (nightTotal/7).toFixed(1);
+  document.getElementById('cnt-pee-abn').textContent = wk.filter(r=>r.type==='pee' && peeRisk(r.data).level!=='正常').length;
+
+  // ===== 健康指数计算（可点击查看明细） =====
+  const h = calcHealthScore(wk);
+  document.getElementById('healthScore').textContent = h.score;
+  const tagEl = document.getElementById('healthTag');
+  tagEl.textContent = h.tag;
+  tagEl.style.background = h.color;
+  document.getElementById('healthPct').textContent = h.score + '%';
+  document.getElementById('healthRing').style.background = `conic-gradient(#fff 0 ${h.score}%, rgba(255,255,255,.25) ${h.score}% 100%)`;
+  // 把明细绑到健康卡，点击可看
+  const card = document.querySelector('.health-card');
+  if(card) card.onclick = ()=>showHealthDetail(h);
+
+  // 今日记录（只显示今天）
+  const today = todayStr();
+  const todayList = records.filter(r=>r.date===today).sort((a,b)=>a.time<b.time?-1:1);
+  const rl = document.getElementById('recentList');
+  if(!todayList.length){
+    rl.innerHTML = `<div class="recent-empty">今天还没有记录哦<br><span style="color:var(--primary);cursor:pointer;font-size:13px;" onclick="openSheet()">+ 点击开始记录</span></div>`;
+  }else{
+    rl.innerHTML = todayList.map(r=>{
+      const t = getType(r.type);
+      return `<div class="record-item" onclick="viewRecord(${r.id})" style="cursor:pointer;">
+        <div class="ic ${t.cls}">${t.emoji}</div>
+        <div class="info"><div class="t">${t.name}</div><div class="s">${recordSummary(r)}</div></div>
+        <div class="time">${r.time}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // 智能健康提示（基于昨天数据 + 全部历史排列组合分析）
+  renderSmartTip();
+  // 勋章
+  renderMedals();
+}
+
+/* =========================================================
+   智能健康贴士引擎
+   基于昨日 + 近 7 日数据，离线规则推理
+   ========================================================= */
+let smartTips = [];
+let tipIndex = 0;
+function renderSmartTip(){
+  smartTips = generateSmartTips();
+  if(!smartTips.length){
+    smartTips = [{emoji:'💡', text:'还没有足够数据来生成个性化建议，记录几次后我会更懂你 ❤️'}];
+  }
+  tipIndex = 0;
+  showTip();
+}
+function showTip(){
+  const t = smartTips[tipIndex % smartTips.length];
+  document.getElementById('tipText').innerHTML = `${t.emoji} ${t.text}`;
+}
+function rotateTip(){
+  tipIndex++;
+  showTip();
+  toast(`提示 ${(tipIndex%smartTips.length)+1}/${smartTips.length}`);
+}
+
+function generateSmartTips(){
+  const tips = [];
+  const today = todayStr();
+  const yest = (()=>{const d=new Date();d.setDate(d.getDate()-1);return fmtDate(d);})();
+  const last7 = (()=>{const d=new Date();d.setDate(d.getDate()-6);return fmtDate(d);})();
+  const yRec = records.filter(r=>r.date===yest);
+  const wRec = records.filter(r=>r.date>=last7);
+  const cntY = key => yRec.filter(r=>r.type===key).length;
+  const cntW = key => wRec.filter(r=>r.type===key).length;
+
+  // ===== 单维度规则 =====
+  // 解压频率
+  if(cntY('jerk')>=3) tips.push({emoji:'⚠️', text:'昨天解压超过 3 次，建议今天给身体一些休息时间，过度可能引起前列腺充血与疲劳。'});
+  else if(cntY('jerk')===2) tips.push({emoji:'💡', text:'昨天解压 2 次，频率偏高。今天可以多喝水、避免久坐，让前列腺充分恢复。'});
+  if(cntW('jerk')>=10) tips.push({emoji:'🚨', text:'近 7 天解压 '+cntW('jerk')+' 次，频率明显偏高，建议适度调整、增加运动转移注意力。'});
+  if(cntW('jerk')===0) tips.push({emoji:'😊', text:'本周还没有解压记录，规律性释放对前列腺健康也有帮助哦。'});
+
+  // 排尿
+  const yPee = yRec.filter(r=>r.type==='pee');
+  const yPeeAbn = yPee.filter(r=>peeRisk(r.data).level!=='正常');
+  if(yPeeAbn.length){
+    const worst = yPeeAbn.map(r=>peeRisk(r.data)).sort((a,b)=>b.score-a.score)[0];
+    if(worst.level==='高度警示') tips.push({emoji:'🚨', text:'昨天排尿出现高度警示症状，强烈建议今天就到泌尿科就诊检查。'});
+    else if(worst.level==='中度异常') tips.push({emoji:'⚠️', text:'昨天排尿评估为中度异常，今日多喝水（1.5-2L）、避免久坐与辛辣，1-2 天未改善建议就医。'});
+    else tips.push({emoji:'💧', text:'昨天排尿有轻度异常，今天注意补水、规律饮食，观察症状是否缓解。'});
+  }
+  // 起夜
+  const nightCnt = yRec.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
+  if(nightCnt>=3) tips.push({emoji:'🌙', text:`昨晚起夜 ${nightCnt} 次，明显偏多。可能与前列腺增生、糖代谢或睡前饮水有关，建议睡前 2h 控水并关注趋势。`});
+  else if(nightCnt===2) tips.push({emoji:'🌙', text:'昨晚起夜 2 次，处于关注边界，今日睡前 2 小时减少饮水试试。'});
+
+  // ===== 组合规则（关键：你提到的"多次解压+尿液异常+起夜"）=====
+  if(cntY('jerk')>=2 && yPeeAbn.length){
+    tips.push({emoji:'❗', text:'昨天解压频次偏高且排尿出现异常，可能造成前列腺暂时性充血。今天建议：① 解压休息一天 ② 多喝温水 ③ 温水坐浴 10 分钟。'});
+  }
+  if(cntY('jerk')>=2 && nightCnt>=2){
+    tips.push({emoji:'❗', text:'昨天解压频次较高 + 起夜增多，前列腺可能受刺激。今日避免久坐、骑车，给身体充分恢复。'});
+  }
+  if(yPeeAbn.length && nightCnt>=2){
+    tips.push({emoji:'🚨', text:'排尿异常 + 起夜增多双重信号，建议尽快做尿常规 + 前列腺彩超检查，不要拖。'});
+  }
+  if(cntY('jerk')>=2 && yPeeAbn.length && nightCnt>=2){
+    tips.push({emoji:'🚨', text:'解压频高、排尿异常、夜尿增多三项同时出现，前列腺负担明显。建议本周内就医，并 1-2 周内暂停解压。'});
+  }
+  // 性生活后建议
+  if(cntY('sex')>=1) tips.push({emoji:'💖', text:'昨天有亲密生活，今天可以适当补充蛋白质与锌（蚝、坚果、瘦肉），有助于身体恢复。'});
+
+  // 运动建议
+  if(cntW('sport')===0) tips.push({emoji:'🏃', text:'本周还没有运动记录！每周 3 次 30 分钟有氧可显著提升睾酮水平，今天动起来吧。'});
+  else if(cntW('sport')>=4) tips.push({emoji:'💪', text:'本周已运动 '+cntW('sport')+' 次，状态很棒！注意运动后充分拉伸与补水。'});
+
+  // 睡眠
+  const ySleep = yRec.find(r=>r.type==='sleep');
+  if(ySleep && ySleep.data.hours<6) tips.push({emoji:'😴', text:`昨天只睡了 ${ySleep.data.hours} 小时，睡眠不足会降低睾酮 10-15%，今晚目标 7.5 小时以上。`});
+  else if(ySleep && ySleep.data.hours>=8) tips.push({emoji:'✨', text:'昨天睡眠充足，激素分泌处于良好状态，今天的状态会很不错！'});
+
+  // 情绪
+  const yMood = yRec.find(r=>r.type==='mood');
+  if(yMood){
+    if((yMood.data.mood||'').includes('焦虑') || (yMood.data.mood||'').includes('低落'))
+      tips.push({emoji:'🧠', text:'昨天情绪偏低，建议今天到户外晒 15 分钟太阳，或做 20 分钟有氧运动来调节。'});
+    if(yMood.data.stress>=4) tips.push({emoji:'🧘', text:'昨天压力评分较高，今日可尝试 4-7-8 呼吸法 5 分钟，或听一些轻音乐放松。'});
+  }
+
+  // 综合：今日打卡进度提醒
+  const todayTypes = new Set(records.filter(r=>r.date===today).map(r=>r.type));
+  if(todayTypes.size===0) tips.push({emoji:'📝', text:'今天还一项都没记呢，从最简单的睡眠或情绪开始记录吧～'});
+  else if(todayTypes.size>=3) tips.push({emoji:'🎉', text:`今天已经记录 ${todayTypes.size} 项，自我观察意识满分！`});
+
+  // 兜底通用建议
+  if(tips.length<2){
+    tips.push({emoji:'💡', text:'每日饮水 1500-2000ml，有助于泌尿系统健康。'});
+    tips.push({emoji:'🥦', text:'番茄红素、锌、欧米伽 3 是前列腺保健的关键营养素。'});
+    tips.push({emoji:'🧘', text:'凯格尔运动可改善排尿控制和性功能，每天 3 组每组 10 次。'});
+  }
+  return tips;
+}
+function filterRecent(type){
+  const t = getType(type);
+  toast(`查看「${t.name}」记录中...`);
+  switchTab('data');
+}
+
+/* =========================================================
+   勋章 / 成就系统
+   ========================================================= */
+const MEDALS = [
+  // 简单
+  {id:'first_record',  emoji:'🎯', name:'初次记录',     desc:'完成第一条健康记录',         diff:'easy', check:(r,h)=>r.length>=1},
+  {id:'streak_3',      emoji:'🔥', name:'三日坚持',     desc:'连续 3 天有记录',           diff:'easy', check:(r,h)=>h.streak>=3},
+  {id:'sport_first',   emoji:'🏃', name:'迈开腿',       desc:'记录第一次运动',             diff:'easy', check:(r,h)=>r.some(x=>x.type==='sport')},
+  {id:'sleep_first',   emoji:'😴', name:'好梦初醒',     desc:'记录第一次睡眠',             diff:'easy', check:(r,h)=>r.some(x=>x.type==='sleep')},
+  {id:'pee_first',     emoji:'💧', name:'健康观察员',   desc:'完成第一次排尿监测',         diff:'easy', check:(r,h)=>r.some(x=>x.type==='pee')},
+  // 中等
+  {id:'streak_7',      emoji:'⭐', name:'连续一周',     desc:'连续 7 天打卡',             diff:'mid',  check:(r,h)=>h.streak>=7},
+  {id:'sport_5',       emoji:'💪', name:'运动新星',     desc:'累计运动 5 次',             diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='sport').length>=5},
+  {id:'sleep_8h',      emoji:'🌙', name:'高质量睡眠',   desc:'单次睡眠 ≥ 8 小时',         diff:'mid',  check:(r,h)=>r.some(x=>x.type==='sleep' && (x.data.hours||calcSleepHours(x.data.bedtime,x.data.waketime))>=8)},
+  {id:'no_jerk_3',     emoji:'🧘', name:'三日禅定',     desc:'连续 3 天无解压记录',       diff:'mid',  check:(r,h)=>h.noJerkStreak>=3},
+  {id:'pee_normal_5',  emoji:'✅', name:'泌尿健康',     desc:'累计 5 次排尿评估为正常',   diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='pee'&&peeRisk(x.data).level==='正常').length>=5},
+  {id:'mood_happy_5',  emoji:'😄', name:'阳光心态',     desc:'累计 5 次开心情绪记录',     diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='mood'&&(x.data.mood||'').includes('开心')).length>=5},
+  {id:'all_types',     emoji:'🎨', name:'全能达人',     desc:'7 种功能各使用至少一次',     diff:'mid',  check:(r,h)=>new Set(r.map(x=>x.type)).size>=7},
+  // 困难
+  {id:'streak_30',     emoji:'👑', name:'月度王者',     desc:'连续 30 天打卡',            diff:'hard', check:(r,h)=>h.streak>=30},
+  {id:'no_jerk_7',     emoji:'🛡️', name:'七日修行',     desc:'连续 7 天不释放',           diff:'hard', check:(r,h)=>h.noJerkStreak>=7},
+  {id:'no_jerk_30',    emoji:'🏆', name:'月度禁欲者',   desc:'连续 30 天不释放',          diff:'hard', check:(r,h)=>h.noJerkStreak>=30},
+  {id:'sport_30',      emoji:'🥇', name:'健身狂魔',     desc:'累计运动 30 次',            diff:'hard', check:(r,h)=>r.filter(x=>x.type==='sport').length>=30},
+  {id:'sleep_perfect', emoji:'💎', name:'睡眠大师',     desc:'连续 7 天睡眠 ≥ 7 小时',     diff:'hard', check:(r,h)=>h.goodSleepStreak>=7},
+  {id:'no_night_7',    emoji:'🌟', name:'安睡七夜',     desc:'连续 7 天无起夜记录',       diff:'hard', check:(r,h)=>h.noNightStreak>=7},
+  {id:'sex_regular',   emoji:'💝', name:'规律生活',     desc:'单月亲密生活 ≥ 4 次',       diff:'hard', check:(r,h)=>h.sexThisMonth>=4},
+  {id:'records_100',   emoji:'💯', name:'百次记录',     desc:'累计 100 条健康记录',       diff:'hard', check:(r,h)=>r.length>=100},
+  {id:'records_365',   emoji:'🌈', name:'年度健康官',   desc:'累计 365 条记录',           diff:'hard', check:(r,h)=>r.length>=365}
+];
+
+function calcMedalHints(){
+  const today = new Date();
+  // 连续打卡天数
+  let streak=0, d=new Date();
+  while(records.some(r=>r.date===fmtDate(d))){ streak++; d.setDate(d.getDate()-1); if(streak>400) break; }
+  // 连续不解压天数
+  let noJerkStreak=0; d=new Date(); d.setDate(d.getDate()-1); // 从昨天往前
+  while(true){
+    const ds=fmtDate(d);
+    const hasAny = records.some(r=>r.date===ds);
+    const hasJerk = records.some(r=>r.date===ds && r.type==='jerk');
+    if(!hasAny) break; // 没记录就断
+    if(hasJerk) break;
+    noJerkStreak++; d.setDate(d.getDate()-1);
+    if(noJerkStreak>400) break;
+  }
+  // 连续 7 天睡眠 ≥7 小时
+  let goodSleepStreak=0; d=new Date();
+  for(let i=0;i<400;i++){
+    const ds=fmtDate(d);
+    const sl=records.find(r=>r.date===ds && r.type==='sleep');
+    if(sl){
+      const h=sl.data.hours || calcSleepHours(sl.data.bedtime,sl.data.waketime);
+      if(h>=7) goodSleepStreak++; else break;
+    } else break;
+    d.setDate(d.getDate()-1);
+  }
+  // 连续无起夜
+  let noNightStreak=0; d=new Date();
+  for(let i=0;i<400;i++){
+    const ds=fmtDate(d);
+    const hasAny = records.some(r=>r.date===ds);
+    const hasNight = records.some(r=>r.date===ds && r.type==='night');
+    if(!hasAny) break;
+    if(hasNight) break;
+    noNightStreak++; d.setDate(d.getDate()-1);
+  }
+  // 本月亲密次数
+  const ym = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const sexThisMonth = records.filter(r=>r.type==='sex' && r.date.startsWith(ym)).length;
+  return {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth};
+}
+
+function getMedalStatus(){
+  const hints = calcMedalHints();
+  return MEDALS.map(m=>({...m, unlocked:m.check(records,hints)}));
+}
+
+function renderMedals(){
+  const list = getMedalStatus();
+  const unlockedCount = list.filter(m=>m.unlocked).length;
+  document.getElementById('medalCount').textContent = `${unlockedCount}/${list.length}`;
+  // 首页只显示前 6 个（已解锁优先 + 即将解锁）
+  const sorted = [...list].sort((a,b)=>{
+    if(a.unlocked!==b.unlocked) return a.unlocked?-1:1;
+    const ord = {easy:0, mid:1, hard:2};
+    return ord[a.diff]-ord[b.diff];
+  });
+  document.getElementById('medalRow').innerHTML = sorted.slice(0,8).map(m=>`
+    <div class="medal-card ${m.unlocked?'unlocked':''}" onclick="viewMedal('${m.id}')">
+      <span class="em">${m.emoji}</span>
+      <div class="nm">${m.name}</div>
+      <div class="lk">${m.unlocked?'✓ 已获得':'未解锁'}</div>
+    </div>
+  `).join('');
+}
+
+function viewMedal(id){
+  const m = getMedalStatus().find(x=>x.id===id);
+  if(!m) return;
+  const tag = m.diff==='hard'?'困难':m.diff==='mid'?'中等':'简单';
+  showModal(`
+    <div style="text-align:center;padding:10px 0 4px;">
+      <div style="font-size:80px;line-height:1;${m.unlocked?'':'filter:grayscale(1);opacity:.4;'}">${m.emoji}</div>
+      <h3 style="margin:14px 0 4px;">${m.name}</h3>
+      <span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:8px;background:${m.diff==='hard'?'#fee2e2':m.diff==='mid'?'#fef3c7':'#e8efff'};color:${m.diff==='hard'?'#ef4444':m.diff==='mid'?'#f59e0b':'#3b6cff'};">${tag}难度</span>
+      <p style="color:var(--text-2);margin-top:14px;">${m.desc}</p>
+      <div style="margin-top:14px;padding:12px;border-radius:14px;background:${m.unlocked?'#dcfce7':'#f4f6fb'};color:${m.unlocked?'#22c55e':'#9aa3b6'};font-weight:600;">
+        ${m.unlocked?'🎉 恭喜！已解锁':'🔒 继续努力，未解锁'}
+      </div>
+    </div>
+    <div class="close-line"><button onclick="closeModal()" style="background:var(--primary);color:#fff;">知道了</button></div>
+  `);
+}
+
+function openMedals(){
+  const list = getMedalStatus();
+  const sorted = [...list].sort((a,b)=>{
+    if(a.unlocked!==b.unlocked) return a.unlocked?-1:1;
+    const ord = {easy:0, mid:1, hard:2};
+    return ord[a.diff]-ord[b.diff];
+  });
+  const groups = [
+    {key:'easy',  label:'🟢 简单'},
+    {key:'mid',   label:'🟡 中等'},
+    {key:'hard',  label:'🔴 困难'}
+  ];
+  let html = `<h3>🏆 勋章收藏 (${sorted.filter(m=>m.unlocked).length}/${sorted.length})</h3>`;
+  groups.forEach(g=>{
+    const ms = sorted.filter(m=>m.diff===g.key);
+    html += `<div style="margin-top:16px;font-weight:600;font-size:14px;">${g.label}</div><div class="medal-grid">`;
+    html += ms.map(m=>`
+      <div class="medal-cell ${m.unlocked?'unlocked':''} diff-${m.diff}" onclick="closeModal();setTimeout(()=>viewMedal('${m.id}'),200);">
+        <span class="em">${m.emoji}</span>
+        <div class="nm">${m.name}</div>
+        <div class="desc">${m.desc}</div>
+      </div>
+    `).join('');
+    html += `</div>`;
+  });
+  html += `<div class="close-line"><button onclick="closeModal()" style="background:var(--primary);color:#fff;">关闭</button></div>`;
+  showModal(html);
+}
+
+/* =========================================================
+   日历
+   ========================================================= */
+let curDate = new Date();
+let currentSelDate = todayStr();
+function renderCalendar(){
+  const y = curDate.getFullYear(), m = curDate.getMonth();
+  document.getElementById('calMonth').textContent = `${y} 年 ${m+1} 月`;
+  const first = new Date(y,m,1).getDay();
+  const days  = new Date(y,m+1,0).getDate();
+  const prevDays = new Date(y,m,0).getDate();
+  const today = todayStr();
+  // 当月记录映射
+  const map = {};
+  records.forEach(r=>{
+    const d = new Date(r.date);
+    if(d.getFullYear()===y && d.getMonth()===m){
+      const day = d.getDate();
+      if(!map[day]) map[day] = new Set();
+      map[day].add(r.type);
+    }
+  });
+  let html = '';
+  for(let i=0;i<first;i++){
+    html += `<div class="day other">${prevDays-first+i+1}</div>`;
+  }
+  for(let d=1; d<=days; d++){
+    const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const types = map[d] ? Array.from(map[d]) : [];
+    const dotsHtml = types.slice(0,4).map(t=>`<span class="dot ${t}"></span>`).join('');
+    const cls = ['day'];
+    if(dStr===today) cls.push('today');
+    if(types.length) cls.push('has-record');
+    if(dStr===currentSelDate) cls.push('selected');
+    html += `<div class="${cls.join(' ')}" data-date="${dStr}" onclick="selectDay('${dStr}')">${d}<div class="dots">${dotsHtml}</div></div>`;
+  }
+  const total = first+days;
+  for(let i=0;i<(7-total%7)%7;i++){
+    html += `<div class="day other">${i+1}</div>`;
+  }
+  document.getElementById('calDays').innerHTML = html;
+}
+function changeMonth(delta){
+  curDate.setMonth(curDate.getMonth()+delta);
+  renderCalendar();
+}
+function selectDay(dStr){
+  currentSelDate = dStr;
+  document.getElementById('selDate').textContent = fmtCN(dStr);
+  // 切换 selected 视觉
+  document.querySelectorAll('#calDays .day').forEach(el=>{
+    el.classList.toggle('selected', el.dataset.date===dStr);
+  });
+  // 显示当日记录
+  const list = records.filter(r=>r.date===dStr).sort((a,b)=>a.time<b.time?-1:1);
+  const dl = document.getElementById('dayList');
+  if(!list.length){
+    dl.innerHTML = `<div class="recent-empty">这一天还没有任何记录哦<br><span style="color:var(--primary);cursor:pointer;font-size:13px;" onclick="openSheet()">+ 立即记录</span></div>`;
+  }else{
+    dl.innerHTML = list.map(r=>{
+      const t = getType(r.type);
+      return `<div class="record-item" onclick="viewRecord(${r.id})">
+        <div class="ic ${t.cls}">${t.emoji}</div>
+        <div class="info"><div class="t">${t.name}</div><div class="s">${recordSummary(r)}${r.note?' · '+r.note:''}</div></div>
+        <div class="time">${r.time}</div>
+        <div class="del" onclick="event.stopPropagation();delRec(${r.id})">🗑️</div>
+      </div>`;
+    }).join('');
+  }
+}
+function viewRecord(id){
+  const r = records.find(x=>x.id===id);
+  if(!r) return;
+  const t = getType(r.type);
+  const lines = Object.entries(r.data||{}).map(([k,v])=>{
+    const val = Array.isArray(v) ? (v.length?v.join('、'):'无') : (typeof v==='boolean'?(v?'是':'否'):v);
+    return `<p>· ${k}：${val}</p>`;
+  }).join('');
+  let extra = '';
+  if(r.type==='pee'){
+    const risk = peeRisk(r.data);
+    extra = `<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:${risk.color}18;border:1px solid ${risk.color}66;"><b style="color:${risk.color};">健康评估：${risk.level}</b><div style="font-size:12px;color:#5b6478;margin-top:4px;">${risk.advice}</div></div>`;
+  }
+  showModal(`<h3>${t.emoji} ${t.name}</h3><p style="color:#9aa3b6;font-size:12px;">${r.date} ${r.time}</p>${lines}${r.note?`<p>· 备注：${r.note}</p>`:''}${extra}<div class="close-line" style="gap:8px;"><button onclick="delRec(${r.id});closeModal()">删除</button><button onclick="closeModal()" style="background:var(--primary);color:#fff;">关闭</button></div>`);
+}
+function delRec(id){
+  if(!confirm('确定删除这条记录？')) return;
+  deleteRecord(id);
+  toast('已删除');
+  renderCalendar();
+  selectDay(currentSelDate);
+  renderHome();
+}
+
+/* =========================================================
+   打卡（已合并到首页/数据，留空函数避免遗漏调用）
+   ========================================================= */
+function renderPunch(){}
+
+/* =========================================================
+   总览
+   ========================================================= */
+let ovRange = 'month';
+function setOverviewRange(el,r){
+  document.querySelectorAll('#overviewSeg span').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on');
+  ovRange = r;
+  renderOverview();
+  initBigCharts();
+}
+function rangeRecords(){
+  const now = new Date();
+  let start = new Date(now);
+  if(ovRange==='week') start.setDate(now.getDate()-6);
+  else if(ovRange==='month') start.setDate(now.getDate()-29);
+  else if(ovRange==='quarter') start.setDate(now.getDate()-89);
+  else start.setDate(now.getDate()-364);
+  const s = fmtDate(start);
+  return records.filter(r=>r.date>=s);
+}
+function renderOverview(){
+  const rs = rangeRecords();
+  const cnt = key => rs.filter(r=>r.type===key).length;
+  const data = [
+    {lbl:'解压总次数', v:cnt('jerk')+' 次',  delta:'up', deltaText:'本期统计'},
+    {lbl:'亲密生活',   v:cnt('sex')+' 次',   delta:'up', deltaText:'本期统计'},
+    {lbl:'运动天数',   v:cnt('sport')+' 次', delta:'up', deltaText:'本期统计'},
+    {lbl:'排尿异常',   v:rs.filter(r=>r.type==='pee'&&r.data.abnormal).length+' 次', delta:'down', deltaText:'本期统计'}
+  ];
+  document.getElementById('ovSummary').innerHTML = data.map(x=>`
+    <div class="sm-card">
+      <div class="lbl">${x.lbl}</div>
+      <div class="v">${x.v}</div>
+      <div class="delta ${x.delta}">${x.deltaText}</div>
+    </div>
+  `).join('');
+
+  // 智能洞察
+  const insights = [];
+  if(cnt('sport')>=3) insights.push('运动频率良好，对体能与精力提升明显');
+  else insights.push('建议本周增加 2 次有氧运动，提升整体活力');
+  if(cnt('jerk')>0) insights.push(`解压频率约每周 ${(cnt('jerk')/Math.max(1,Math.ceil(rs.length?7:1))).toFixed(1)} 次，处于健康区间`);
+  const abn = rs.filter(r=>r.type==='pee'&&r.data.abnormal).length;
+  if(abn>=2) insights.push('⚠️ 排尿异常次数较多，建议关注饮水与就医检查');
+  else insights.push('排尿状况整体良好，继续保持饮水习惯');
+  if(cnt('sleep')>=3) insights.push('睡眠记录稳定，对激素平衡很有帮助');
+  document.getElementById('insightList').innerHTML = insights.map(t=>`<li>${t}</li>`).join('');
+}
+
+/* =========================================================
+   图表
+   ========================================================= */
+let miniChart, weekChart, pieChart;
+let miniRange = 'week';
+function setMiniRange(el,r){
+  el.parentNode.querySelectorAll('span').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on');
+  miniRange = r;
+  initMiniChart();
+}
+function initMiniChart(){
+  const ctx = document.getElementById('miniChart');
+  if(!ctx) return;
+  if(miniChart) miniChart.destroy();
+  const days = miniRange==='week' ? 7 : 30;
+  const labels = [], data = [];
+  const today = new Date();
+  for(let i=days-1;i>=0;i--){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const ds = fmtDate(d);
+    labels.push(miniRange==='week' ? ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()] : (d.getMonth()+1)+'/'+d.getDate());
+    data.push(records.filter(r=>r.date===ds).length);
+  }
+  miniChart = new Chart(ctx,{
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'活跃度', data,
+      borderColor:'#3b6cff', backgroundColor:'rgba(59,108,255,.12)',
+      fill:true, tension:.4, pointBackgroundColor:'#3b6cff', pointRadius: miniRange==='week'?4:2
+    }]},
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{ y:{display:false,beginAtZero:true},
+        x:{grid:{display:false}, ticks:{font:{size:10},color:'#9aa3b6', maxTicksLimit:7}}}
+    }
+  });
+}
+function initBigCharts(){
+  renderHeatmap();
+  renderRadar();
+  renderTrend();
+}
+
+/* 热力图：最近 30 天，每天一个格子 */
+function renderHeatmap(){
+  const box = document.getElementById('heatmap');
+  if(!box) return;
+  const today = new Date();
+  let html = '<div class="heatmap-grid">';
+  for(let i=29;i>=0;i--){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const ds = fmtDate(d);
+    const cnt = records.filter(r=>r.date===ds).length;
+    let lvl = 0;
+    if(cnt>=1) lvl=1; if(cnt>=2) lvl=2; if(cnt>=4) lvl=3; if(cnt>=6) lvl=4;
+    const isToday = ds===todayStr();
+    html += `<div class="heat-cell l${lvl}${isToday?' today':''}" title="${ds} · ${cnt}条" onclick="goDate('${ds}')">${cnt||''}</div>`;
+  }
+  html += '</div>';
+  html += `<div class="heat-legend">少 <i style="background:#f0f2f7"></i><i style="background:#dbeafe"></i><i style="background:#93c5fd"></i><i style="background:#3b82f6"></i><i style="background:#1d4ed8"></i> 多</div>`;
+  box.innerHTML = html;
+}
+function goDate(ds){
+  // 切到日历视图并定位
+  const seg = document.querySelectorAll('#dataSeg span');
+  if(seg[0] && !seg[0].classList.contains('on')) seg[0].click();
+  curDate = new Date(ds);
+  renderCalendar();
+  selectDay(ds);
+}
+
+/* 雷达图：本期各健康维度活跃度 */
+function renderRadar(){
+  const ctx = document.getElementById('radarChart');
+  if(!ctx) return;
+  if(window._radar) window._radar.destroy();
+  const rs = rangeRecords();
+  const days = ovRange==='week'?7:ovRange==='month'?30:ovRange==='quarter'?90:365;
+  // 各维度计算 0-100 的活跃度评分
+  const sportCnt = rs.filter(r=>r.type==='sport').length;
+  const sleepCnt = rs.filter(r=>r.type==='sleep').length;
+  const moodCnt  = rs.filter(r=>r.type==='mood').length;
+  const sexCnt   = rs.filter(r=>r.type==='sex').length;
+  const jerkCnt  = rs.filter(r=>r.type==='jerk').length;
+  const peeNorm  = rs.filter(r=>r.type==='pee'&&peeRisk(r.data).level==='正常').length;
+  const peeAbn   = rs.filter(r=>r.type==='pee'&&peeRisk(r.data).level!=='正常').length;
+  const nightAvg = rs.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0)/Math.max(1,days);
+  const score = {
+    '运动': Math.min(100, sportCnt/days*100*3), // 每周 3 次 = 100
+    '睡眠': Math.min(100, sleepCnt/days*100),
+    '情绪': Math.min(100, moodCnt/days*100),
+    '亲密': Math.min(100, sexCnt/days*100*7),  // 每周 1 次 = 100
+    '泌尿': Math.max(0, 100 - peeAbn*20 + (peeNorm>0?20:0)),
+    '夜尿': Math.max(0, 100 - nightAvg*40),    // 0 次 = 100, 2.5 次 = 0
+    '解压': Math.max(0, Math.min(100, 100 - Math.abs(jerkCnt/days*7 - 3)*20)) // 接近每周 3 次最佳
+  };
+  window._radar = new Chart(ctx,{
+    type:'radar',
+    data:{
+      labels:Object.keys(score),
+      datasets:[{
+        label:'活跃度',
+        data:Object.values(score).map(v=>Math.round(v)),
+        backgroundColor:'rgba(59,108,255,.2)',
+        borderColor:'#3b6cff',
+        pointBackgroundColor:'#3b6cff',
+        pointRadius:4,
+        borderWidth:2
+      }]
+    },
+    options:{
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' 分'}}},
+      scales:{r:{
+        suggestedMin:0, suggestedMax:100,
+        ticks:{display:false, stepSize:25},
+        pointLabels:{font:{size:13, family:"-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif"}, color:'#1a2238', padding:8},
+        grid:{color:'#eef0f6'},
+        angleLines:{color:'#eef0f6'}
+      }}
+    }
+  });
+}
+
+/* 趋势图：解压/运动/起夜 三条折线对比 */
+function renderTrend(){
+  const ctx = document.getElementById('trendChart');
+  if(!ctx) return;
+  if(window._trend) window._trend.destroy();
+  let buckets, labelFn, daysPerBucket;
+  if(ovRange==='week'){ buckets=7; daysPerBucket=1; labelFn=(i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return ['日','一','二','三','四','五','六'][d.getDay()];};}
+  else if(ovRange==='month'){ buckets=4; daysPerBucket=7; labelFn=i=>'第'+(i+1)+'周'; }
+  else if(ovRange==='quarter'){ buckets=3; daysPerBucket=30; labelFn=i=>['前月','上月','本月'][i]; }
+  else { buckets=12; daysPerBucket=30; labelFn=i=>(i+1)+'月'; }
+  const labels = []; for(let i=0;i<buckets;i++) labels.push(labelFn(i));
+  const today = new Date();
+  const series = [
+    {key:'jerk', label:'解压', color:'#ff7a59'},
+    {key:'sport', label:'运动', color:'#22c55e'},
+    {key:'night', label:'起夜', color:'#8b5cf6', sumByCount:true}
+  ].map(s=>{
+    const arr = new Array(buckets).fill(0);
+    records.forEach(r=>{
+      if(r.type!==s.key) return;
+      const d = new Date(r.date);
+      const diff = Math.floor((today-d)/86400000);
+      if(diff<0) return;
+      const idx = buckets-1-Math.floor(diff/daysPerBucket);
+      if(idx>=0 && idx<buckets) arr[idx] += s.sumByCount?(r.data.count||1):1;
+    });
+    return {label:s.label, data:arr, borderColor:s.color, backgroundColor:s.color+'22', fill:false, tension:.4, pointRadius:4, pointBackgroundColor:s.color, borderWidth:2};
+  });
+  window._trend = new Chart(ctx,{
+    type:'line',
+    data:{labels, datasets:series},
+    options:{
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:14,padding:12}}},
+      scales:{
+        y:{beginAtZero:true, ticks:{font:{size:10},precision:0}, grid:{color:'#eef0f6'}},
+        x:{grid:{display:false}, ticks:{font:{size:10}}}
+      }
+    }
+  });
+}
+
+/* =========================================================
+   文章 / 个人中心
+   ========================================================= */
+const ARTICLES = [
+  {cat:'饮食', emoji:'🥦', bg:'var(--primary-soft)', mins:3,
+   title:'前列腺保健的 5 个饮食习惯',
+   excerpt:'番茄红素、锌、欧米伽 3 是关键营养素…',
+   body:`<p>前列腺健康与日常饮食密切相关。以下 5 个饮食习惯被研究证实对前列腺有保护作用：</p>
+   <p>1. 多吃富含番茄红素的食物（番茄、西瓜）<br>2. 补充锌（牡蛎、南瓜籽）<br>3. 摄入欧米伽 3（深海鱼、亚麻籽）<br>4. 减少红肉与高脂乳制品<br>5. 每日饮水 1500-2000 ml</p>
+   <p>坚持这些饮食习惯，配合规律作息，可以有效降低前列腺疾病风险。</p>`},
+  {cat:'体检', emoji:'💪', bg:'var(--accent-soft)', mins:5,
+   title:'30 岁后男性必做的 4 个体检项目',
+   excerpt:'从 PSA 到睾酮水平，定期检查很重要…',
+   body:`<p>30 岁后，男性身体进入新陈代谢转折期，建议每年做以下 4 项检查：</p>
+   <p>1. PSA（前列腺特异性抗原）<br>2. 睾酮水平<br>3. 血脂四项<br>4. 肝肾功能 + 尿常规</p>
+   <p>早筛早治，是对自己和家人最负责的态度。</p>`},
+  {cat:'训练', emoji:'🧘', bg:'var(--purple-soft)', mins:4,
+   title:'盆底肌训练：男人也需要凯格尔运动',
+   excerpt:'提高性能力、改善排尿问题的简单训练…',
+   body:`<p>凯格尔运动并非女性专属，男性同样能从中受益。它能改善排尿控制、缓解早泄、提升性生活质量。</p>
+   <p><b>训练方法：</b>收缩盆底肌（如同憋尿）5 秒，放松 5 秒，每组 10 次，每天 3 组。</p>
+   <p>坚持 4-6 周，会有明显效果。</p>`},
+  {cat:'妙招', emoji:'💧', bg:'var(--cyan-soft)', mins:2,
+   title:'每日饮水黄金法则：200ml × 8 杯',
+   excerpt:'分时段喝水，远比一次猛灌更养肾…',
+   body:`<p>男性平均每天需 1500-2000 ml 水分，最佳饮水节奏：</p>
+   <p>· 起床后空腹 1 杯（唤醒代谢）<br>· 上午 10 点 1 杯<br>· 午餐前 1 杯<br>· 下午 3-4 点 2 杯<br>· 晚餐前 1 杯<br>· 睡前 2 小时 1 杯（小口）</p>
+   <p><b>避雷：</b>睡前 1 小时勿大量饮水，否则起夜增多影响深睡。运动后小口慢饮，避免一次猛灌冲击肾脏。</p>`},
+  {cat:'妙招', emoji:'🪑', bg:'var(--yellow-soft)', mins:3,
+   title:'久坐危机：每 45 分钟必做的 3 个动作',
+   excerpt:'久坐是前列腺第一杀手，3 个动作即可缓解…',
+   body:`<p>久坐压迫前列腺、影响盆腔血液循环，是男性健康头号隐形杀手。</p>
+   <p><b>每 45 分钟做这 3 个动作（共 3 分钟）：</b></p>
+   <p>1. <b>提肛运动：</b>站立收紧肛门 5 秒，放松 5 秒，重复 10 次<br>2. <b>髋部环绕：</b>双手叉腰，骨盆顺时针转 10 圈，逆时针 10 圈<br>3. <b>深蹲 10 个：</b>促进下肢回血，激活臀腿大肌群</p>
+   <p>开发者、司机、办公族尤其需要养成习惯。</p>`},
+  {cat:'睡眠', emoji:'🌙', bg:'var(--purple-soft)', mins:4,
+   title:'睾酮分泌的黄金睡眠时段：22:30-2:30',
+   excerpt:'晚睡 1 小时，睾酮水平掉 10%…',
+   body:`<p>研究表明，男性睾酮分泌高峰在凌晨 0-3 点的深睡阶段。</p>
+   <p><b>提升睾酮的睡眠 4 法：</b></p>
+   <p>1. <b>22:30 前入睡</b>，确保深睡覆盖分泌高峰<br>2. <b>睡眠 7-9 小时</b>，少于 6 小时睾酮直接掉 10-15%<br>3. <b>睡前 1 小时关蓝光</b>，褪黑素正常分泌<br>4. <b>卧室温度 18-20℃</b>，最有利于深睡</p>
+   <p>连续 1 周高质量睡眠，会感受到精力、体能、欲望都明显提升。</p>`},
+  {cat:'妙招', emoji:'🍅', bg:'var(--accent-soft)', mins:3,
+   title:'前列腺最爱的 7 种平价食物',
+   excerpt:'番茄、南瓜籽、西兰花…超市都能买到',
+   body:`<p>不需要昂贵补品，超市里这 7 种食物对前列腺最友好：</p>
+   <p>1. <b>番茄</b>（熟食 > 生食，番茄红素吸收率提升 3 倍）<br>2. <b>南瓜籽</b>（每天一小把，富含锌）<br>3. <b>西兰花</b>（萝卜硫素，抗氧化）<br>4. <b>三文鱼</b>（欧米伽 3 抗炎）<br>5. <b>核桃</b>（精氨酸促进血流）<br>6. <b>蓝莓</b>（花青素保护泌尿系统）<br>7. <b>绿茶</b>（儿茶素抗氧化，每天 2-3 杯）</p>`},
+  {cat:'运动', emoji:'🏋️', bg:'var(--green-soft)', mins:5,
+   title:'提升睾酮的 4 个最强训练动作',
+   excerpt:'深蹲、硬拉、卧推、引体向上，复合动作王道',
+   body:`<p>研究证实复合动作（多关节）比单关节动作能多刺激 30% 的睾酮分泌：</p>
+   <p>1. <b>深蹲</b>：每周 2 次，每次 5×5<br>2. <b>硬拉</b>：每周 1 次，每次 3×5<br>3. <b>卧推</b>：每周 2 次，每次 4×6<br>4. <b>引体向上</b>：每周 2 次，做到力竭</p>
+   <p><b>关键提醒：</b>大重量、低次数（5-8 次/组）+ 充分休息（组间 2-3 分钟）效果最好。每周练 3-4 次，保证 7-8 小时睡眠，3 个月后会有显著改变。</p>`},
+  {cat:'妙招', emoji:'🚿', bg:'var(--cyan-soft)', mins:2,
+   title:'温水坐浴：前列腺的"温泉 SPA"',
+   excerpt:'每周 2-3 次，缓解充血最简单的方法',
+   body:`<p>温水坐浴是中医和现代医学都认可的前列腺护理法。</p>
+   <p><b>正确做法：</b></p>
+   <p>· 水温：40-42℃（手感温热不烫）<br>· 时长：15-20 分钟<br>· 频率：每周 2-3 次<br>· 时间：睡前最佳</p>
+   <p><b>原理：</b>温热可改善盆腔血液循环、缓解前列腺充血与炎症。配合凯格尔运动效果更佳。</p>
+   <p>注意：急性炎症期、皮肤破损时不宜。</p>`},
+  {cat:'心理', emoji:'🧠', bg:'var(--pink-soft)', mins:4,
+   title:'压力大易"翻车"？4-7-8 呼吸法亲测有效',
+   excerpt:'生理性焦虑导致的状态不佳，呼吸法 5 分钟见效',
+   body:`<p>压力会激活交感神经，导致勃起困难、早泄、焦虑等问题。4-7-8 呼吸法可在 5 分钟内激活副交感神经，恢复放松状态。</p>
+   <p><b>步骤：</b></p>
+   <p>1. 用鼻子吸气 4 秒<br>2. 屏住呼吸 7 秒<br>3. 用嘴缓慢呼气 8 秒（发出 whoosh 声）<br>4. 重复 4 个循环为一组</p>
+   <p>每天早晚各做 1 组，紧张焦虑时随时来一组。坚持 2 周可显著改善睡眠和性表现。</p>`},
+  {cat:'两性', emoji:'💝', bg:'var(--primary-soft)', mins:5,
+   title:'延时不靠药：3 个生理训练让你更持久',
+   excerpt:'凯格尔 + 停-动法 + 呼吸控制，免费且有效',
+   body:`<p>药物只能解决一时，生理训练才能根本提升持久力。</p>
+   <p><b>1. 凯格尔训练（核心）</b><br>每天 3 组，每组 10 次收缩。坚持 6 周，盆底肌力量提升，可主动控制射精。</p>
+   <p><b>2. 停-动法（Stop-Start）</b><br>感觉接近时主动停止刺激 30 秒，让兴奋度回落，重复 3-4 个循环再完成。可独自练习也可与伴侣配合。</p>
+   <p><b>3. 腹式呼吸</b><br>过程中保持深长腹式呼吸，避免胸式急促呼吸（会加速兴奋）。</p>
+   <p>三者结合 8-12 周，平均时长可提升 3-5 倍。</p>`},
+  {cat:'生活', emoji:'🚫', bg:'var(--yellow-soft)', mins:3,
+   title:'男人最伤前列腺的 5 个日常习惯',
+   excerpt:'你可能每天都在做，却不知道伤害有多大',
+   body:`<p>对照自查，看看你中了几条：</p>
+   <p>1. <b>憋尿</b>：膀胱过度充盈，尿液返流刺激前列腺<br>2. <b>久坐</b>（>4 小时不起身）：直接压迫前列腺<br>3. <b>过量饮酒</b>：酒精扩张血管引发前列腺充血水肿<br>4. <b>吃太辣</b>：辣椒素刺激前列腺充血<br>5. <b>骑行 >2 小时</b>：硬座长时间压迫会阴神经</p>
+   <p>哪怕只改掉 2-3 条，3 个月后排尿症状会有明显改善。</p>`},
+  {cat:'妙招', emoji:'🥗', bg:'var(--green-soft)', mins:3,
+   title:'告别"小肚子"：男人减脂的科学顺序',
+   excerpt:'内脏脂肪降下来，睾酮自然回升',
+   body:`<p>男性腹部脂肪会芳香化酶将睾酮转化为雌激素，越胖越虚。降脂顺序：</p>
+   <p><b>第 1 步：饮食（占 70%）</b><br>· 戒掉含糖饮料、奶茶、果汁<br>· 主食粗细搭配，米饭换 1/3 燕麦/红薯<br>· 每餐手掌大蛋白质（鸡胸、鱼、鸡蛋）</p>
+   <p><b>第 2 步：力量训练（占 20%）</b><br>每周 3 次复合动作，深蹲硬拉是首选</p>
+   <p><b>第 3 步：低强度有氧（占 10%）</b><br>每周 2 次快走 30 分钟，避免长时间高强度跑步</p>`},
+  {cat:'生活', emoji:'☕', bg:'var(--accent-soft)', mins:3,
+   title:'咖啡 vs 茶：哪个对男性更友好？',
+   excerpt:'其实都好，但喝法对了才有效…',
+   body:`<p>两者都能护心、提升脂肪代谢、降低 2 型糖尿病风险，关键看怎么喝。</p>
+   <p><b>咖啡：</b>每天 2-3 杯（不超 400mg 咖啡因），不加糖。研究显示可降低前列腺癌 17%。但下午 2 点后避免，否则影响深睡。</p>
+   <p><b>茶：</b>绿茶 > 红茶。每天 2-3 杯绿茶，儿茶素抗氧化效果最强。空腹勿喝、避免过浓。</p>
+   <p>建议组合：上午咖啡 + 下午绿茶。</p>`}
+];
+function openArticle(i){
+  const a = ARTICLES[i];
+  showModal(`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-size:36px;width:54px;height:54px;border-radius:14px;background:${a.bg};display:flex;align-items:center;justify-content:center;">${a.emoji}</span><div><h3 style="margin:0;">${a.title}</h3><div style="font-size:11px;color:var(--text-3);margin-top:4px;">${a.cat} · ${a.mins} 分钟阅读</div></div></div>${a.body}<div class="close-line"><button onclick="closeArticle()">${listOpenedBeforeArticle?'返回列表':'关闭'}</button></div>`);
+}
+let listOpenedBeforeArticle = false;
+function closeArticle(){
+  if(listOpenedBeforeArticle){ listOpenedBeforeArticle=false; closeModal(); setTimeout(openArticleList,150); }
+  else closeModal();
+}
+function openArticleList(){
+  // 按分类分组
+  const cats = [...new Set(ARTICLES.map(a=>a.cat))];
+  let html = `<h3 style="margin-bottom:6px;">📚 男性健康知识库</h3><p style="color:var(--text-3);font-size:12px;margin:0 0 14px;">${ARTICLES.length} 篇精选文章 · 持续更新</p>`;
+  // 分类筛选 chip
+  html += `<div class="chip-row" data-key="cat" data-mode="single" id="catFilter" style="margin-bottom:12px;flex-wrap:wrap;justify-content:flex-start;">
+    <div class="chip on" onclick="filterArticleCat(this,'')">全部</div>
+    ${cats.map(c=>`<div class="chip" onclick="filterArticleCat(this,'${c}')">${c}</div>`).join('')}
+  </div>`;
+  html += `<div id="articleListBox">${renderArticleListItems('')}</div>`;
+  html += `<div class="close-line"><button onclick="closeModal()">关闭</button></div>`;
+  showModal(html);
+}
+function renderArticleListItems(catFilter){
+  return ARTICLES.map((a,i)=>{
+    if(catFilter && a.cat!==catFilter) return '';
+    return `<div onclick="listOpenedBeforeArticle=true;closeModal();setTimeout(()=>openArticle(${i}),150);" style="display:flex;gap:10px;padding:12px;background:#f7f8fc;border-radius:14px;margin-bottom:8px;cursor:pointer;align-items:center;">
+      <div style="width:48px;height:48px;border-radius:12px;background:${a.bg};display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${a.emoji}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;color:var(--text);">${a.title}</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px;">${a.cat} · ${a.mins} 分钟阅读</div>
+      </div>
+      <div style="color:var(--text-3);">›</div>
+    </div>`;
+  }).join('');
+}
+function filterArticleCat(el, cat){
+  el.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('articleListBox').innerHTML = renderArticleListItems(cat);
+}
+function openProfile(){
+  const total = records.length;
+  const days = new Set(records.map(r=>r.date)).size;
+  const medalUnlocked = getMedalStatus().filter(m=>m.unlocked).length;
+  showModal(`
+    <h3>👨 集帅</h3>
+    <p>📊 累计记录 <b>${total}</b> 条 · 共 <b>${days}</b> 天</p>
+    <p>🎂 30 岁 · 175cm · 70kg</p>
+    <p>🔥 连续打卡 <b>${(()=>{let s=0,d=new Date();while(records.some(r=>r.date===fmtDate(d))){s++;d.setDate(d.getDate()-1);if(s>365)break;}return s;})()}</b> 天</p>
+    <p>🏆 已获勋章 <b>${medalUnlocked}/${MEDALS.length}</b></p>
+    <hr style="border:none;border-top:1px solid #eef0f6;margin:14px 0;">
+    <p style="cursor:pointer" onclick="closeModal();setTimeout(openMedals,200)">🏆 我的勋章收藏</p>
+    <p style="cursor:pointer" onclick="exportData()">📤 导出我的数据</p>
+    <p style="cursor:pointer;color:#ef4444" onclick="resetData()">🗑️ 清空所有数据</p>
+    <div class="close-line"><button onclick="closeModal()">关闭</button></div>
+  `);
+}
+function exportData(){
+  const blob = new Blob([JSON.stringify(records,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `tayu-records-${todayStr()}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  closeModal();
+  toast('已导出');
+}
+function resetData(){
+  if(!confirm('确认清空所有数据？此操作不可恢复')) return;
+  localStorage.removeItem(LS_KEY);
+  records = [];
+  closeModal();
+  toast('已清空');
+  renderHome(); renderCalendar(); selectDay(todayStr());
+}
+function showModal(html){
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal') closeModal();});
+
+/* =========================================================
+   Toast
+   ========================================================= */
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+/* =========================================================
+   初始化
+   ========================================================= */
+/* 全局字体统一：Chart.js 默认字体跟随 App */
+if(window.Chart){
+  Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#5b6478';
+}
+loadRecords();
+renderHome();
+renderCalendar();
+selectDay(todayStr());
+window.addEventListener('load', ()=>{});
+</script>
+</body>
+</html>
