@@ -273,9 +273,9 @@
     padding:8px 0 16px;border-top:1px solid var(--line);
     box-shadow:0 -4px 20px rgba(0,0,0,.04);z-index:50;
   }
-  .tab{flex:1;display:flex;flex-direction:column;align-items:center;color:var(--text-3);font-size:11px;cursor:pointer;padding:6px 0;}
-  .tab.active{color:var(--primary);}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;color:var(--text-3);font-size:10px;cursor:pointer;padding:6px 0;min-width:0;}
   .tab .ic{font-size:20px;margin-bottom:2px;}
+  .tab.active{color:var(--primary);}
   .tab.placeholder{visibility:hidden;}
 
   /* FAB */
@@ -410,7 +410,6 @@
         <div>
           <div class="greet" id="greet">集帅，今天也要好好爱自己 ❤️</div>
         </div>
-        <div class="avatar" onclick="openProfile()">👨</div>
       </div>
       <div class="health-card">
         <div class="score">
@@ -424,44 +423,12 @@
 
     <div class="stats-row" id="statsRow"></div>
 
-    <div class="section-title"><h3>🏆 我的勋章 <span style="font-size:12px;color:var(--text-3);font-weight:400;margin-left:6px;" id="medalCount">0/0</span></h3><span class="more" onclick="openMedals()">查看全部 ›</span></div>
-    <div class="medal-row" id="medalRow"></div>
+    <!-- 本周称号小卡 -->
+    <div id="homeTitleHint" style="margin:0 16px;"></div>
 
     <div class="section-title"><h3>📝 今日记录</h3><span class="more" onclick="switchTab('data')">查看更多 ›</span></div>
     <div class="recent-card" id="recentList"></div>
-
-    <div class="tips" onclick="rotateTip()" style="cursor:pointer;">
-      <h4>🩺 今日健康建议 <span style="font-size:11px;color:var(--text-3);font-weight:400;float:right;">点击换一条 🔄</span></h4>
-      <p id="tipText" style="line-height:1.7;">基于昨天的数据为你分析中...</p>
-    </div>
-
-    <div class="section-title"><h3>📰 男性健康</h3><span class="more" onclick="openArticleList()">更多 ›</span></div>
-    <div class="articles">
-      <div class="article" onclick="openArticle(0)">
-        <div class="thumb" style="background:var(--primary-soft);">🥦</div>
-        <div class="body">
-          <h5>前列腺保健的 5 个饮食习惯</h5>
-          <p>番茄红素、锌、欧米伽 3 是关键营养素…</p>
-          <div class="meta">健康饮食 · 3 分钟阅读</div>
-        </div>
-      </div>
-      <div class="article" onclick="openArticle(1)">
-        <div class="thumb" style="background:var(--accent-soft);">💪</div>
-        <div class="body">
-          <h5>30 岁后男性必做的 4 个体检项目</h5>
-          <p>从 PSA 到睾酮水平，定期检查很重要…</p>
-          <div class="meta">体检指南 · 5 分钟阅读</div>
-        </div>
-      </div>
-      <div class="article" onclick="openArticle(2)">
-        <div class="thumb" style="background:var(--purple-soft);">🧘</div>
-        <div class="body">
-          <h5>盆底肌训练：男人也需要凯格尔运动</h5>
-          <p>提高性能力、改善排尿问题的简单训练…</p>
-          <div class="meta">运动训练 · 4 分钟阅读</div>
-        </div>
-      </div>
-    </div>
+    <div style="height:30px;"></div>
   </div>
 
   <!-- ============ 数据页（日历 + 总览 合并） ============ -->
@@ -539,11 +506,60 @@
     <div style="height:30px;"></div>
   </div>
 
+  <!-- ============ 成就页 ============ -->
+  <div class="page" id="page-achieve">
+    <div style="padding:32px 20px 16px;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border-radius:0 0 28px 28px;">
+      <h2 style="margin:0 0 4px;font-size:22px;">🏆 我的成就</h2>
+      <p style="margin:0;font-size:13px;opacity:.9;">坚持记录，收集你的专属称号与勋章</p>
+    </div>
+
+    <!-- 本周称号大卡片 -->
+    <div id="titleCard" style="margin:-12px 16px 0;background:#fff;border-radius:24px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.08);position:relative;z-index:2;"></div>
+
+    <!-- 称号收藏（历史） -->
+    <div class="section-title"><h3>📜 称号收藏 <span style="font-size:12px;color:var(--text-3);font-weight:400;margin-left:6px;" id="titleCount">0 个</span></h3><span class="more" onclick="openAllTitles()">全部 ›</span></div>
+    <div id="titleHistory" style="margin:0 16px;display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none;"></div>
+
+    <!-- 勋章 -->
+    <div class="section-title"><h3>🎖️ 勋章 <span style="font-size:12px;color:var(--text-3);font-weight:400;margin-left:6px;" id="achieveMedalCount">0/0</span></h3><span class="more" onclick="openMedals()">查看全部 ›</span></div>
+    <div class="medal-row" id="achieveMedalRow"></div>
+
+    <!-- 累计统计 -->
+    <div class="section-title"><h3>📈 累计统计</h3></div>
+    <div id="lifetimeStats" style="padding:0 16px 30px;display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
+  </div>
+
+  <!-- ============ 个人中心页 ============ -->
+  <div class="page" id="page-profile">
+    <!-- 用户头像区 -->
+    <div style="padding:36px 20px 24px;background:linear-gradient(160deg,#3b6cff 0%,#6f8dff 100%);color:#fff;border-radius:0 0 28px 28px;text-align:center;">
+      <div id="profileAvatar" style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:38px;margin:0 auto 12px;">👨</div>
+      <div id="profileName" style="font-size:20px;font-weight:700;">集帅</div>
+      <div id="profileStatus" style="font-size:12px;opacity:.85;margin-top:4px;">仅本地模式</div>
+    </div>
+
+    <!-- 健康提示 -->
+    <div class="tips" id="profileTips" style="margin:16px;cursor:pointer;" onclick="rotateTip()">
+      <h4>🩺 今日健康建议 <span style="font-size:11px;color:var(--text-3);font-weight:400;float:right;">点击换一条 🔄</span></h4>
+      <p id="profileTipText" style="line-height:1.7;">基于昨天的数据为你分析中...</p>
+    </div>
+
+    <!-- 男性健康文章 -->
+    <div class="section-title"><h3>📰 男性健康</h3><span class="more" onclick="openArticleList()">全部 14 篇 ›</span></div>
+    <div class="articles" id="profileArticles"></div>
+
+    <!-- 设置 / 操作 -->
+    <div class="section-title"><h3>⚙️ 设置</h3></div>
+    <div style="margin:0 16px 30px;background:#fff;border-radius:18px;box-shadow:var(--shadow);overflow:hidden;" id="profileSettings"></div>
+  </div>
+
   <!-- ============ 底部 Tab + FAB ============ -->
   <div class="tabbar">
     <div class="tab active" data-page="home" onclick="switchTab('home')"><div class="ic">🏠</div><div>首页</div></div>
+    <div class="tab" data-page="achieve" onclick="switchTab('achieve')"><div class="ic">🏆</div><div>成就</div></div>
     <div class="tab placeholder"><div class="ic">+</div><div>记录</div></div>
     <div class="tab" data-page="data" onclick="switchTab('data')"><div class="ic">📊</div><div>数据</div></div>
+    <div class="tab" data-page="profile" onclick="switchTab('profile')"><div class="ic">👤</div><div>个人</div></div>
   </div>
   <div class="fab" id="fab" onclick="openSheet()">+</div>
 
@@ -944,6 +960,8 @@ function switchTab(name){
   document.querySelector(`.tab[data-page="${name}"]`).classList.add('active');
   window.scrollTo(0,0);
   if(name==='home') { renderHome(); }
+  if(name==='achieve') { renderAchievePage(); }
+  if(name==='profile') { renderProfilePage(); }
   if(name==='data') {
     if(dataView==='cal'){ renderCalendar(); selectDay(currentSelDate||todayStr()); }
     else { renderOverview(); setTimeout(initBigCharts,30); }
@@ -1148,6 +1166,8 @@ async function saveRecord(){
     if(dataView==='cal'){ renderCalendar(); selectDay(currentSelDate||todayStr()); }
     else { renderOverview(); initBigCharts(); }
   }
+  if(document.getElementById('page-achieve').classList.contains('active')) renderAchievePage();
+  if(document.getElementById('page-profile').classList.contains('active')) renderProfilePage();
   // 检测新解锁勋章
   const afterUnlocked = getMedalStatus().filter(m=>m.unlocked);
   const newOnes = afterUnlocked.filter(m=>!beforeUnlocked.includes(m.id));
@@ -1364,10 +1384,26 @@ function renderHome(){
     }).join('');
   }
 
-  // 智能健康提示（基于昨天数据 + 全部历史排列组合分析）
+  // 智能健康提示（首页不再显示，但仍要算 — profile 用）
   renderSmartTip();
-  // 勋章
-  renderMedals();
+
+  // 首页本周称号简卡（点击跳到成就页）
+  const wkRecs = recordsInWeek(weekKey());
+  if(wkRecs.length>0){
+    const t = generateWeeklyTitle(wkRecs);
+    const el = document.getElementById('homeTitleHint');
+    if(el) el.innerHTML = `
+      <div onclick="switchTab('achieve')" style="margin-top:16px;background:linear-gradient(135deg,#fef3c7,#fff);border:1px solid #fde68a;border-radius:18px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:11px;color:#92400e;">🏆 本周称号</div>
+          <div style="font-size:16px;font-weight:700;margin-top:4px;line-height:1.3;">${t.title}</div>
+        </div>
+        <span style="color:#92400e;font-size:18px;">›</span>
+      </div>`;
+  } else {
+    const el = document.getElementById('homeTitleHint');
+    if(el) el.innerHTML = '';
+  }
 }
 
 /* =========================================================
@@ -1386,7 +1422,15 @@ function renderSmartTip(){
 }
 function showTip(){
   const t = smartTips[tipIndex % smartTips.length];
-  document.getElementById('tipText').innerHTML = `${t.emoji} ${t.text}`;
+  const html = `${t.emoji} ${t.text}`;
+  // 同时更新可能存在的 tipText（首页旧）和 profileTipText（个人页）
+  const a = document.getElementById('tipText');
+  if(a) a.innerHTML = html;
+  const b = document.getElementById('profileTipText');
+  if(b) b.innerHTML = html;
+  // 缓存供 profile 页直接使用
+  window._tipsCache = smartTips;
+  window._tipIdx = tipIndex;
 }
 function rotateTip(){
   tipIndex++;
@@ -1586,17 +1630,409 @@ function getMedalStatus(){
   return MEDALS.map(m=>({...m, unlocked:m.check(records,hints)}));
 }
 
+/* =========================================================
+   周称号系统
+   - 每周根据数据生成 1 个独特称号
+   - 由「形容词 A + 形容词 B + 基础名词」三段拼接
+   - 50+ 种组合
+   ========================================================= */
+
+// 称号词库
+const TITLE_LIB = {
+  // 维度评分函数 → 返回 'high'/'mid'/'low'/'none'
+  ejac: (rs) => {
+    const n = rs.filter(r=>r.type==='jerk'||r.type==='sex').length;
+    if(n>=8) return 'high';
+    if(n>=4) return 'mid';
+    if(n>=1) return 'low';
+    return 'none';
+  },
+  sex: (rs) => {
+    const n = rs.filter(r=>r.type==='sex').length;
+    if(n>=4) return 'high';
+    if(n>=2) return 'mid';
+    if(n>=1) return 'low';
+    return 'none';
+  },
+  jerk: (rs) => {
+    const n = rs.filter(r=>r.type==='jerk').length;
+    if(n>=7) return 'high';
+    if(n>=3) return 'mid';
+    if(n>=1) return 'low';
+    return 'none';
+  },
+  sport: (rs) => {
+    const n = rs.filter(r=>r.type==='sport').length;
+    if(n>=5) return 'high';
+    if(n>=2) return 'mid';
+    if(n>=1) return 'low';
+    return 'none';
+  },
+  sleep: (rs) => {
+    const ss = rs.filter(r=>r.type==='sleep');
+    if(!ss.length) return 'none';
+    const avg = ss.reduce((a,r)=>a+(r.data.hours||calcSleepHours(r.data.bedtime,r.data.waketime)||0),0)/ss.length;
+    if(avg>=8) return 'high';
+    if(avg>=6.5) return 'mid';
+    return 'low';
+  },
+  mood: (rs) => {
+    const ms = rs.filter(r=>r.type==='mood');
+    if(!ms.length) return 'none';
+    const happy = ms.filter(r=>(r.data.mood||'').includes('开心')||(r.data.mood||'').includes('平静')).length / ms.length;
+    if(happy>=0.7) return 'high';
+    if(happy>=0.4) return 'mid';
+    return 'low';
+  },
+  night: (rs) => {
+    const total = rs.filter(r=>r.type==='night').reduce((a,r)=>a+(r.data.count||1),0);
+    if(total===0) return 'none';
+    if(total<=2) return 'low';
+    if(total<=5) return 'mid';
+    return 'high';
+  },
+  pee: (rs) => {
+    const ps = rs.filter(r=>r.type==='pee');
+    if(!ps.length) return 'none';
+    const abn = ps.filter(r=>peeRisk(r.data).level!=='正常').length;
+    if(abn===0) return 'high'; // 全正常 = high（健康）
+    if(abn/ps.length<0.4) return 'mid';
+    return 'low';
+  }
+};
+
+// 形容词池：每个维度每个等级有多个形容词，组合起来变化丰富
+const ADJ_LIB = {
+  ejac: {
+    high: ['激情澎湃的', '欲火焚身的', '猛男附体的', '永动机的'],
+    mid:  ['活力满满的', '规律节奏的', '张弛有度的'],
+    low:  ['偶尔小酌的', '细水长流的', '佛系释放的'],
+    none: ['坐怀不乱的', '禁欲修行的', '清心寡欲的']
+  },
+  sport: {
+    high: ['运动健将的', '肌肉饱满的', '荷尔蒙爆棚的', '铁人三项的'],
+    mid:  ['热爱跑跳的', '身手矫健的', '坚持锻炼的'],
+    low:  ['偶尔挪挪的', '勉强动动的', '半推半就的'],
+    none: ['沙发瘫痪的', '宅家躺平的', '葛优同款的']
+  },
+  sleep: {
+    high: ['睡眠大师的', '梦境深沉的', '嗜睡如命的', '元气补满的'],
+    mid:  ['作息正常的', '够用就好的', '中规中矩的'],
+    low:  ['熬夜冠军的', '失眠选手的', '黑眼圈代言人']
+  },
+  mood: {
+    high: ['天天开心的', '阳光普照的', '快乐源泉的', '心如止水的'],
+    mid:  ['情绪稳定的', '波澜不惊的', '看淡一切的'],
+    low:  ['emo 患者的', '压力山大的', '内耗严重的', '小作精的']
+  },
+  night: {
+    none: ['一觉到天亮的', '睡神级别的'],
+    low:  ['偶尔起夜的', '小膀胱预警的'],
+    mid:  ['夜尿频频的', '前列腺呼救的'],
+    high: ['一夜无眠的', '厕所常客的']
+  },
+  pee: {
+    high: ['膀胱健康的', '前列腺优等生的', '排尿如歌的'],
+    mid:  ['一切尚可的', '偶有警报的'],
+    low:  ['身体警示中的', '需要关爱的']
+  }
+};
+
+// 基础名词池：根据"主导维度"挑选
+const NOUN_LIB = {
+  ejac_high: ['🐺 荷尔蒙猛男', '🔥 性福发电机', '💥 欲望小马达'],
+  ejac_low:  ['🧘 禅心居士', '🌱 清修小菜鸟', '☁️ 浮云老仙'],
+  sport_high:['🏋️ 健身达人', '⚡️ 能量战士', '🦁 猛兽体能'],
+  sport_low: ['🛋️ 快乐肥宅', '🦥 树懒先生', '🛌 沙发居民'],
+  sleep_high:['😴 梦乡长老', '🌙 月光骑士', '💤 睡眠艺术家'],
+  sleep_low: ['🦉 夜猫子'],
+  mood_high: ['🐶 开心小狗', '🌈 彩虹捕手', '☀️ 快乐源体', '🐬 治愈系男孩'],
+  mood_low:  ['🥲 emo 文艺青年', '🌧️ 阴天少年', '☁️ 内耗工程师'],
+  night_high:['🚽 起夜健将', '⏰ 半夜闹钟'],
+  pee_low:   ['🩺 待复诊学员', '⚠️ 健康预警员'],
+  pee_high:  ['💧 排尿模范生', '🌊 流畅小专家'],
+  // 万能兜底
+  default:   ['👤 神秘旅人', '🌟 健康探索者', '🎲 随机生活家', '🐱 摸鱼大师', '🍃 佛系玩家']
+};
+
+function generateWeeklyTitle(rs){
+  // 计算每个维度等级
+  const dims = {};
+  Object.keys(TITLE_LIB).forEach(k=>{
+    dims[k] = TITLE_LIB[k](rs);
+  });
+
+  // 找两个最强维度作为形容词来源（优先 high，再 low / none）
+  const order = ['ejac','sport','sleep','mood','night','pee'];
+  const candidates = order.filter(k=>dims[k]!=='none' || k==='ejac'); // ejac 即使 none 也有形容词
+  // 排序：high/low 优先，mid 次之
+  const sorted = candidates.sort((a,b)=>{
+    const score = (l)=>{
+      if(l==='high'||l==='low') return 2;
+      if(l==='none') return 1.5;
+      return 1;
+    };
+    return score(dims[b])-score(dims[a]);
+  });
+
+  // 取前 2 个不同维度做形容词
+  const adj1Dim = sorted[0] || 'mood';
+  const adj2Dim = sorted[1] || 'sport';
+  const adj1Pool = (ADJ_LIB[adj1Dim] && ADJ_LIB[adj1Dim][dims[adj1Dim]]) || [''];
+  const adj2Pool = (ADJ_LIB[adj2Dim] && ADJ_LIB[adj2Dim][dims[adj2Dim]]) || [''];
+
+  // 用本周的随机种子稳定选词（同一周生成的称号相同）
+  const seed = weekKey(); // 比如 "2026-W18"
+  const r1 = hash(seed+'a') % adj1Pool.length;
+  const r2 = hash(seed+'b') % adj2Pool.length;
+  const adj1 = adj1Pool[r1];
+  const adj2 = adj2Pool[r2];
+
+  // 选名词：根据最强维度+等级
+  let nounKey = adj1Dim + '_' + dims[adj1Dim];
+  if(!NOUN_LIB[nounKey] || dims[adj1Dim]==='mid') nounKey = 'default';
+  const nounPool = NOUN_LIB[nounKey];
+  const r3 = hash(seed+'c') % nounPool.length;
+  const noun = nounPool[r3];
+
+  // 拼接：避免重复同一形容词
+  let prefix;
+  if(adj1 === adj2 || !adj2) prefix = adj1;
+  else prefix = adj1 + adj2;
+
+  return {
+    title: prefix + noun,
+    weekKey: seed,
+    dims,
+    breakdown: {
+      adj1: {dim:adj1Dim, level:dims[adj1Dim], text:adj1},
+      adj2: {dim:adj2Dim, level:dims[adj2Dim], text:adj2},
+      noun
+    }
+  };
+}
+
+function hash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){
+    h = ((h<<5)-h) + str.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function weekKey(date){
+  const d = date ? new Date(date) : new Date();
+  // 转为 ISO 周
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay()||7));
+  const yearStart = new Date(d.getFullYear(),0,1);
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return d.getFullYear() + '-W' + String(week).padStart(2,'0');
+}
+
+function lastWeekKey(){
+  const d = new Date();
+  d.setDate(d.getDate()-7);
+  return weekKey(d);
+}
+
+function recordsInWeek(weekKeyStr){
+  // 找出指定周 ISO 周内的记录
+  return records.filter(r=>weekKey(r.date)===weekKeyStr);
+}
+
+// 称号历史持久化
+function getTitleHistory(){
+  // 从所有有记录的周生成
+  const weeks = new Set(records.map(r=>weekKey(r.date)));
+  const cur = weekKey();
+  return Array.from(weeks).sort().reverse().map(wk=>{
+    const wkRecs = recordsInWeek(wk);
+    const t = generateWeeklyTitle(wkRecs);
+    return {weekKey:wk, isCurrent:wk===cur, title:t.title, breakdown:t.breakdown, recordCount:wkRecs.length};
+  });
+}
+
+function renderAchievePage(){
+  // 本周称号大卡
+  const wkRecs = recordsInWeek(weekKey());
+  const t = generateWeeklyTitle(wkRecs);
+  const tc = document.getElementById('titleCard');
+  if(tc){
+    tc.innerHTML = `
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:6px;">本周称号 · ${weekKey()}</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1.3;margin:8px 0;">${t.title}</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:6px;">基于本周 ${wkRecs.length} 条记录生成</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:#f7f8fc;border-radius:14px;font-size:12px;line-height:1.7;color:var(--text-2);">
+        <div>📊 <b>${t.breakdown.adj1.text || '—'}</b> 来自「${dimName(t.breakdown.adj1.dim)}」表现</div>
+        <div>📊 <b>${t.breakdown.adj2.text || '—'}</b> 来自「${dimName(t.breakdown.adj2.dim)}」表现</div>
+      </div>
+      <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--text-3);">每周一更新 · 截图分享给朋友吧</div>
+    `;
+  }
+
+  // 称号历史（最近 8 周）
+  const history = getTitleHistory();
+  const cntEl = document.getElementById('titleCount');
+  if(cntEl) cntEl.textContent = history.length + ' 个';
+  const hRow = document.getElementById('titleHistory');
+  if(hRow){
+    if(!history.length){
+      hRow.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px;width:100%;">还没有历史称号，开始记录后每周自动生成</div>`;
+    } else {
+      hRow.innerHTML = history.slice(0,8).map(h=>`
+        <div onclick="viewTitle('${h.weekKey}')" style="flex:0 0 160px;background:${h.isCurrent?'linear-gradient(135deg,#fef3c7,#fff)':'#fff'};border:${h.isCurrent?'2px solid #f59e0b':'1px solid var(--line)'};border-radius:14px;padding:12px;cursor:pointer;text-align:center;">
+          <div style="font-size:10px;color:var(--text-3);">${h.weekKey}${h.isCurrent?' · 本周':''}</div>
+          <div style="font-size:14px;font-weight:600;margin-top:6px;line-height:1.3;">${h.title}</div>
+        </div>
+      `).join('');
+    }
+  }
+
+  // 累计统计
+  renderLifetimeStats();
+  // 勋章
+  renderMedals();
+}
+
+function dimName(d){
+  return {ejac:'排精节律', sport:'运动', sleep:'睡眠', mood:'心情', night:'夜尿', pee:'泌尿', sex:'亲密', jerk:'解压'}[d] || d;
+}
+
+function viewTitle(wk){
+  const wkRecs = recordsInWeek(wk);
+  const t = generateWeeklyTitle(wkRecs);
+  showModal(`
+    <div style="text-align:center;padding:10px 0;">
+      <div style="font-size:11px;color:var(--text-3);">${wk}</div>
+      <div style="font-size:30px;font-weight:700;margin:14px 0;line-height:1.3;">${t.title}</div>
+      <p style="color:var(--text-3);font-size:12px;">基于本周 ${wkRecs.length} 条记录</p>
+    </div>
+    <div style="background:#f7f8fc;border-radius:12px;padding:14px;font-size:13px;line-height:1.8;">
+      <div>📊 「${dimName(t.breakdown.adj1.dim)}」→ <b>${t.breakdown.adj1.text}</b></div>
+      <div>📊 「${dimName(t.breakdown.adj2.dim)}」→ <b>${t.breakdown.adj2.text}</b></div>
+      <div>🎭 主题角色：<b>${t.breakdown.noun}</b></div>
+    </div>
+    <div class="close-line"><button onclick="closeModal()" style="background:var(--primary);color:#fff;">知道了</button></div>
+  `);
+}
+
+function openAllTitles(){
+  const history = getTitleHistory();
+  let html = `<h3>📜 称号收藏 (${history.length})</h3><p style="color:var(--text-3);font-size:12px;margin:0 0 14px;">每周一根据上周数据自动生成</p>`;
+  if(!history.length){
+    html += `<p style="text-align:center;color:var(--text-3);padding:20px;">还没有历史称号</p>`;
+  } else {
+    html += history.map(h=>`
+      <div onclick="closeModal();setTimeout(()=>viewTitle('${h.weekKey}'),200);" style="background:${h.isCurrent?'linear-gradient(135deg,#fef3c7,#fff)':'#f7f8fc'};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:14px;font-weight:600;line-height:1.3;">${h.title}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:4px;">${h.weekKey} · ${h.recordCount} 条记录${h.isCurrent?' · 本周':''}</div>
+        </div>
+        <div style="color:var(--text-3);">›</div>
+      </div>
+    `).join('');
+  }
+  html += `<div class="close-line"><button onclick="closeModal()">关闭</button></div>`;
+  showModal(html);
+}
+
+function renderLifetimeStats(){
+  const total = records.length;
+  const days = new Set(records.map(r=>r.date)).size;
+  const cnt = key => records.filter(r=>r.type===key).length;
+  const stats = [
+    {emoji:'📝', label:'累计记录', val:total, unit:'条', color:'#3b6cff'},
+    {emoji:'📅', label:'打卡天数', val:days, unit:'天', color:'#22c55e'},
+    {emoji:'✋', label:'解压次数', val:cnt('jerk'), unit:'次', color:'#ff7a59'},
+    {emoji:'❤️', label:'亲密次数', val:cnt('sex'), unit:'次', color:'#ec4899'},
+    {emoji:'🏃', label:'运动次数', val:cnt('sport'), unit:'次', color:'#22c55e'},
+    {emoji:'😴', label:'睡眠记录', val:cnt('sleep'), unit:'次', color:'#06b6d4'}
+  ];
+  const el = document.getElementById('lifetimeStats');
+  if(el){
+    el.innerHTML = stats.map(s=>`
+      <div style="background:#fff;border-radius:16px;padding:14px;box-shadow:var(--shadow);">
+        <div style="font-size:24px;">${s.emoji}</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px;">${s.label}</div>
+        <div style="font-size:20px;font-weight:700;color:${s.color};margin-top:2px;">${s.val} <span style="font-size:11px;font-weight:400;color:var(--text-3);">${s.unit}</span></div>
+      </div>
+    `).join('');
+  }
+}
+
+/* =========================================================
+   个人中心页渲染
+   ========================================================= */
+function renderProfilePage(){
+  // 状态
+  let status = '仅本地模式';
+  if(CURRENT_USER && CURRENT_USER.email){
+    status = CURRENT_USER.email + (CLOUD_OK?' · 已同步':' · 离线');
+  }
+  document.getElementById('profileStatus').textContent = status;
+
+  // 健康提示（复用同一逻辑）
+  if(window._tipsCache && window._tipsCache.length){
+    const idx = window._tipIdx || 0;
+    document.getElementById('profileTipText').innerHTML = window._tipsCache[idx % window._tipsCache.length].emoji + ' ' + window._tipsCache[idx % window._tipsCache.length].text;
+  } else {
+    renderSmartTip();
+  }
+
+  // 文章（重用 ARTICLES 前 3 篇）
+  const ar = document.getElementById('profileArticles');
+  if(ar){
+    ar.innerHTML = ARTICLES.slice(0,3).map((a,i)=>`
+      <div class="article" onclick="openArticle(${i})">
+        <div class="thumb" style="background:${a.bg};">${a.emoji}</div>
+        <div class="body">
+          <h5>${a.title}</h5>
+          <p>${a.excerpt}</p>
+          <div class="meta">${a.cat} · ${a.mins} 分钟阅读</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 设置项
+  const items = [];
+  if(CURRENT_USER){
+    items.push({emoji:'🔄', label:'重新同步云端', action:'syncFromCloud()'});
+    items.push({emoji:'🚪', label:'退出登录', action:'logoutUser()', danger:true});
+  } else {
+    items.push({emoji:'☁️', label:'登录以同步云端', action:'closeModal();document.getElementById(\'authPage\').classList.remove(\'hide\');'});
+  }
+  items.push({emoji:'📤', label:'导出我的数据 (JSON)', action:'exportData()'});
+  items.push({emoji:'🗑️', label:'清空本地数据', action:'resetData()', danger:true});
+
+  const sEl = document.getElementById('profileSettings');
+  if(sEl){
+    sEl.innerHTML = items.map((it,i)=>`
+      <div onclick="${it.action}" style="padding:14px 16px;display:flex;align-items:center;cursor:pointer;${i<items.length-1?'border-bottom:1px solid var(--line);':''}">
+        <span style="font-size:18px;margin-right:12px;">${it.emoji}</span>
+        <span style="flex:1;font-size:14px;color:${it.danger?'#ef4444':'var(--text)'};">${it.label}</span>
+        <span style="color:var(--text-3);">›</span>
+      </div>
+    `).join('');
+  }
+}
+
 function renderMedals(){
   const list = getMedalStatus();
   const unlockedCount = list.filter(m=>m.unlocked).length;
-  document.getElementById('medalCount').textContent = `${unlockedCount}/${list.length}`;
-  // 首页只显示前 6 个（已解锁优先 + 即将解锁）
+  const cntEl = document.getElementById('achieveMedalCount');
+  if(cntEl) cntEl.textContent = `${unlockedCount}/${list.length}`;
   const sorted = [...list].sort((a,b)=>{
     if(a.unlocked!==b.unlocked) return a.unlocked?-1:1;
     const ord = {easy:0, mid:1, hard:2};
     return ord[a.diff]-ord[b.diff];
   });
-  document.getElementById('medalRow').innerHTML = sorted.slice(0,8).map(m=>`
+  const rowEl = document.getElementById('achieveMedalRow');
+  if(rowEl) rowEl.innerHTML = sorted.slice(0,8).map(m=>`
     <div class="medal-card ${m.unlocked?'unlocked':''}" onclick="viewMedal('${m.id}')">
       <span class="em">${m.emoji}</span>
       <div class="nm">${m.name}</div>
