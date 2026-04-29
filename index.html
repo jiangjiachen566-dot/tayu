@@ -4,6 +4,18 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>他柚 TAYU · 男性健康管理</title>
+
+<!-- PWA / 桌面图标：渐变蓝紫 + 月相图案 + TAYU 字标，唯美抽象 -->
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+<link rel="manifest" href="manifest.json" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="他柚" />
+<meta name="theme-color" content="#3E74F8" />
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   :root{
@@ -2342,12 +2354,19 @@ async function checkSupabaseReachable(){
   try {
     const ctrl = new AbortController();
     setTimeout(()=>ctrl.abort(), 5000);
-    const res = await fetch(SUPABASE_URL + '/auth/v1/health', {signal:ctrl.signal});
-    if(!res.ok) throw new Error('not ok');
-    console.log('[tayu] Supabase 可达 ✓');
+    // 用 /auth/v1/settings 探测（带 apikey 即可 200，不需要登录）
+    const res = await fetch(SUPABASE_URL + '/auth/v1/settings', {
+      signal:ctrl.signal,
+      headers: {'apikey': SUPABASE_KEY}
+    });
+    // 任何 4xx/2xx 都说明能连通；只有 5xx 或 fetch 抛错才算挂
+    if(res.status >= 500) throw new Error('server '+res.status);
+    console.log('[tayu] Supabase 可达 ✓ (HTTP '+res.status+')');
+    // 移除旧警告
+    const old = document.getElementById('netWarn');
+    if(old) old.remove();
   } catch(e){
     console.warn('[tayu] Supabase 不可达：', e.message);
-    // 在登录页显示警告
     const card = document.querySelector('.auth-card');
     if(card && !document.getElementById('netWarn')){
       const div = document.createElement('div');
