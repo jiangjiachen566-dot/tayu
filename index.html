@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>他柚 TAYU · 男性健康管理</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#f4f6fb;
@@ -581,7 +581,17 @@
    ========================================================= */
 const SUPABASE_URL = 'https://bgxifxjjghynsxdtizag.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_qTgYstLsU2gu135VqBslpA_QCe2NSeO';
-const supa = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let supa = null;
+try {
+  if(window.supabase && window.supabase.createClient){
+    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    console.log('[tayu] Supabase client OK', supa);
+  } else {
+    console.error('[tayu] Supabase SDK 未加载！window.supabase=', window.supabase);
+  }
+} catch(e){
+  console.error('[tayu] Supabase 初始化失败:', e);
+}
 let CURRENT_USER = null;
 let LOCAL_ONLY_MODE = false; // 不登录、仅本地
 
@@ -639,20 +649,28 @@ async function authSubmit(){
   const pw = document.getElementById('authPassword').value;
   if(!email || !pw){ toast('请填写邮箱和密码'); return; }
   if(pw.length<6){ toast('密码至少 6 位'); return; }
+  if(!supa){
+    toast('❌ 云端服务未加载，请检查网络后刷新');
+    console.error('[tayu] supa is null. window.supabase=', window.supabase);
+    return;
+  }
   const btn = document.getElementById('authSubmit');
   btn.disabled = true; btn.textContent = '处理中...';
+  console.log('[tayu] auth start, mode=', authMode, 'email=', email);
   try{
     let res;
     if(authMode==='signup'){
       res = await supa.auth.signUp({email, password:pw});
+      console.log('[tayu] signUp result:', res);
       if(res.error) throw res.error;
       if(!res.data.session){ // 需要邮箱确认
-        toast('注册成功，但需要邮件确认。请按指引或先关闭"Confirm email"');
+        toast('📧 注册成功，请到邮箱点击确认链接（或在 Supabase 关闭 Confirm email）');
         btn.disabled = false; btn.textContent = '注册并开始使用';
         return;
       }
     } else {
       res = await supa.auth.signInWithPassword({email, password:pw});
+      console.log('[tayu] signIn result:', res);
       if(res.error) throw res.error;
     }
     // 派生加密密钥（用 user.id 当 salt，每个用户独立）
@@ -663,7 +681,10 @@ async function authSubmit(){
     enterApp();
     toast(authMode==='signup' ? '🎉 注册成功，开始记录吧' : '👋 欢迎回来');
   }catch(e){
-    toast('❌ ' + (e.message || '操作失败'));
+    console.error('[tayu] auth error:', e);
+    const msg = e.message || e.error_description || JSON.stringify(e);
+    toast('❌ ' + msg);
+    alert('登录/注册失败：\n\n' + msg + '\n\n（已在控制台打印详细信息）');
     btn.disabled = false; btn.textContent = authMode==='signup' ? '注册并开始使用' : '登录';
   }
 }
