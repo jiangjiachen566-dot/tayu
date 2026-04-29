@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>他柚 TAYU · 男性健康管理</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#f4f6fb;
@@ -577,23 +576,88 @@
 
 <script>
 /* =========================================================
-   Supabase 配置
+   Supabase 配置（纯 fetch 实现，避免 SDK 兼容性问题）
    ========================================================= */
 const SUPABASE_URL = 'https://bgxifxjjghynsxdtizag.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_qTgYstLsU2gu135VqBslpA_QCe2NSeO';
-let supa = null;
-try {
-  if(window.supabase && window.supabase.createClient){
-    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    console.log('[tayu] Supabase client OK', supa);
-  } else {
-    console.error('[tayu] Supabase SDK 未加载！window.supabase=', window.supabase);
-  }
-} catch(e){
-  console.error('[tayu] Supabase 初始化失败:', e);
-}
+const supa = true; // 标记可用
 let CURRENT_USER = null;
-let LOCAL_ONLY_MODE = false; // 不登录、仅本地
+let ACCESS_TOKEN = null;
+let REFRESH_TOKEN = null;
+let LOCAL_ONLY_MODE = false;
+
+/* 通用 Supabase API 请求 */
+async function supaApi(path, opts = {}){
+  const url = SUPABASE_URL + path;
+  const headers = {
+    'apikey': SUPABASE_KEY,
+    'Content-Type': 'application/json',
+    ...(opts.headers || {})
+  };
+  if(ACCESS_TOKEN && !headers['Authorization']) {
+    headers['Authorization'] = 'Bearer ' + ACCESS_TOKEN;
+  }
+  const res = await fetch(url, {...opts, headers});
+  const text = await res.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch(e){ body = text; }
+  if(!res.ok){
+    const err = new Error((body && (body.error_description || body.msg || body.message || body.error)) || ('HTTP '+res.status));
+    err.status = res.status; err.body = body;
+    throw err;
+  }
+  return body;
+}
+
+/* 鉴权相关 */
+const supaAuth = {
+  async signUp(email, password){
+    return await supaApi('/auth/v1/signup', {
+      method:'POST',
+      body: JSON.stringify({email, password})
+    });
+  },
+  async signIn(email, password){
+    return await supaApi('/auth/v1/token?grant_type=password', {
+      method:'POST',
+      body: JSON.stringify({email, password})
+    });
+  },
+  async signOut(){
+    if(!ACCESS_TOKEN) return;
+    try {
+      await supaApi('/auth/v1/logout', {method:'POST'});
+    } catch(e){ /* 忽略 */ }
+  },
+  saveSession(s){
+    if(!s) return;
+    ACCESS_TOKEN = s.access_token;
+    REFRESH_TOKEN = s.refresh_token;
+    CURRENT_USER = s.user;
+    localStorage.setItem('tayu_session', JSON.stringify({
+      access_token: s.access_token,
+      refresh_token: s.refresh_token,
+      user: s.user,
+      expires_at: s.expires_at
+    }));
+  },
+  loadSession(){
+    try {
+      const s = JSON.parse(localStorage.getItem('tayu_session'));
+      if(s && s.expires_at && s.expires_at*1000 > Date.now()+60000){
+        ACCESS_TOKEN = s.access_token;
+        REFRESH_TOKEN = s.refresh_token;
+        CURRENT_USER = s.user;
+        return s;
+      }
+    } catch(e){}
+    return null;
+  },
+  clearSession(){
+    ACCESS_TOKEN = null; REFRESH_TOKEN = null; CURRENT_USER = null;
+    localStorage.removeItem('tayu_session');
+  }
+};
 
 /* =========================================================
    客户端加密（AES-GCM + PBKDF2）
@@ -649,42 +713,37 @@ async function authSubmit(){
   const pw = document.getElementById('authPassword').value;
   if(!email || !pw){ toast('请填写邮箱和密码'); return; }
   if(pw.length<6){ toast('密码至少 6 位'); return; }
-  if(!supa){
-    toast('❌ 云端服务未加载，请检查网络后刷新');
-    console.error('[tayu] supa is null. window.supabase=', window.supabase);
-    return;
-  }
   const btn = document.getElementById('authSubmit');
   btn.disabled = true; btn.textContent = '处理中...';
   console.log('[tayu] auth start, mode=', authMode, 'email=', email);
   try{
     let res;
     if(authMode==='signup'){
-      res = await supa.auth.signUp({email, password:pw});
+      res = await supaAuth.signUp(email, pw);
       console.log('[tayu] signUp result:', res);
-      if(res.error) throw res.error;
-      if(!res.data.session){ // 需要邮箱确认
-        toast('📧 注册成功，请到邮箱点击确认链接（或在 Supabase 关闭 Confirm email）');
+      // 新版 Supabase signup 直接返回 session（已自动确认邮箱时）
+      if(!res.access_token){
+        toast('📧 注册成功，请去邮箱点确认链接（或在 Supabase 关闭 Confirm email）');
         btn.disabled = false; btn.textContent = '注册并开始使用';
         return;
       }
     } else {
-      res = await supa.auth.signInWithPassword({email, password:pw});
+      res = await supaAuth.signIn(email, pw);
       console.log('[tayu] signIn result:', res);
-      if(res.error) throw res.error;
     }
-    // 派生加密密钥（用 user.id 当 salt，每个用户独立）
-    CURRENT_USER = res.data.user;
+    // 保存会话
+    supaAuth.saveSession(res);
+    // 派生加密密钥
     CRYPTO_KEY = await deriveKey(pw, CURRENT_USER.id);
-    // 加载云端数据并解密
+    // 加载云端数据
     await loadFromCloud();
     enterApp();
     toast(authMode==='signup' ? '🎉 注册成功，开始记录吧' : '👋 欢迎回来');
   }catch(e){
-    console.error('[tayu] auth error:', e);
-    const msg = e.message || e.error_description || JSON.stringify(e);
+    console.error('[tayu] auth error:', e, 'body:', e.body);
+    const msg = e.message || JSON.stringify(e);
     toast('❌ ' + msg);
-    alert('登录/注册失败：\n\n' + msg + '\n\n（已在控制台打印详细信息）');
+    alert('登录/注册失败：\n\n' + msg + (e.body?'\n\n详情：'+JSON.stringify(e.body):''));
     btn.disabled = false; btn.textContent = authMode==='signup' ? '注册并开始使用' : '登录';
   }
 }
@@ -701,8 +760,8 @@ function enterApp(){
 }
 async function logoutUser(){
   if(!confirm('退出登录？本地缓存将被清除（云端数据不受影响）。')) return;
-  if(supa) await supa.auth.signOut();
-  CURRENT_USER = null;
+  await supaAuth.signOut();
+  supaAuth.clearSession();
   CRYPTO_KEY = null;
   records = [];
   localStorage.removeItem(LS_KEY);
@@ -723,10 +782,9 @@ function loadRecordsLocal(){
 function saveRecordsLocal(){ localStorage.setItem(LS_KEY, JSON.stringify(records)); }
 
 async function loadFromCloud(){
-  if(!supa || !CURRENT_USER) return;
+  if(!CURRENT_USER || !ACCESS_TOKEN) return;
   try{
-    const {data, error} = await supa.from('records').select('*').order('date',{ascending:false}).order('time',{ascending:false});
-    if(error) throw error;
+    const data = await supaApi('/rest/v1/records?select=*&order=date.desc,time.desc');
     const decrypted = [];
     for(const row of data){
       const payload = await decryptStr(row.encrypted);
@@ -737,6 +795,7 @@ async function loadFromCloud(){
     records = decrypted;
     saveRecordsLocal();
     CLOUD_OK = true;
+    console.log('[tayu] 云端加载', records.length, '条');
   }catch(e){
     console.error('云端加载失败：', e);
     loadRecordsLocal();
@@ -746,23 +805,26 @@ async function loadFromCloud(){
 }
 
 async function addRecord(rec){
-  // 先本地，再云端
   rec.id = Date.now();
   records.unshift(rec);
   saveRecordsLocal();
-  if(supa && CURRENT_USER && !LOCAL_ONLY_MODE){
+  if(CURRENT_USER && ACCESS_TOKEN && !LOCAL_ONLY_MODE){
     try{
       const encrypted = await encryptObj({data:rec.data, note:rec.note});
-      const {data, error} = await supa.from('records').insert({
-        user_id: CURRENT_USER.id,
-        type: rec.type, date: rec.date, time: rec.time,
-        encrypted
-      }).select().single();
-      if(error) throw error;
-      // 更新本地 id 为云端 id
-      const local = records.find(r=>r.id===rec.id);
-      if(local) local.id = data.id;
-      saveRecordsLocal();
+      const data = await supaApi('/rest/v1/records', {
+        method:'POST',
+        headers:{'Prefer':'return=representation'},
+        body: JSON.stringify({
+          user_id: CURRENT_USER.id,
+          type: rec.type, date: rec.date, time: rec.time, encrypted
+        })
+      });
+      const cloudId = Array.isArray(data) ? data[0]?.id : data?.id;
+      if(cloudId){
+        const local = records.find(r=>r.id===rec.id);
+        if(local) local.id = cloudId;
+        saveRecordsLocal();
+      }
       CLOUD_OK = true;
     }catch(e){
       console.warn('云端写入失败：', e);
@@ -775,9 +837,9 @@ async function addRecord(rec){
 async function deleteRecord(id){
   records = records.filter(r=>r.id!==id);
   saveRecordsLocal();
-  if(supa && CURRENT_USER && !LOCAL_ONLY_MODE){
+  if(CURRENT_USER && ACCESS_TOKEN && !LOCAL_ONLY_MODE){
     try{
-      await supa.from('records').delete().eq('id', id);
+      await supaApi('/rest/v1/records?id=eq.'+encodeURIComponent(id), {method:'DELETE'});
     }catch(e){ console.warn('云端删除失败：', e); }
   }
 }
@@ -2031,38 +2093,23 @@ if(window.Chart){
 
 /* 启动：先尝试恢复登录会话，否则显示登录页 */
 async function bootstrap(){
-  // 先把日历等基础渲染（用空数据占位，避免错误）
   loadRecordsLocal();
   renderCalendar();
   selectDay(todayStr());
 
-  if(!supa){
-    // SDK 未加载（离线/CDN 失败）→ 直接 local-only
-    LOCAL_ONLY_MODE = true;
-    enterApp();
-    toast('⚠️ 离线模式');
-    return;
-  }
-  // 检查是否已有会话
-  const {data:{session}} = await supa.auth.getSession();
+  // 尝试加载本地保存的会话
+  const session = supaAuth.loadSession();
   if(session){
-    // 自动登录但 PBKDF2 密钥需要密码 → 需要让用户解锁一次
-    CURRENT_USER = session.user;
-    promptUnlock();
+    // 已有会话但需要密码解密本地数据 → 显示登录页让用户输密码
+    document.getElementById('authPage').classList.remove('hide');
+    document.getElementById('authEmail').value = session.user.email;
+    document.getElementById('authEmail').readOnly = true;
+    switchAuthTab('signin');
+    setTimeout(()=>document.getElementById('authPassword').focus(), 200);
+    toast('请输入密码以解密本地数据');
   } else {
-    // 未登录，显示登录页
     document.getElementById('authPage').classList.remove('hide');
   }
-}
-
-function promptUnlock(){
-  // 已有会话但还没派生密钥（首次启动浏览器）→ 提示输入密码
-  document.getElementById('authPage').classList.remove('hide');
-  document.getElementById('authEmail').value = CURRENT_USER.email;
-  document.getElementById('authEmail').readOnly = true;
-  document.getElementById('authPassword').focus();
-  switchAuthTab('signin');
-  toast('请输入密码以解密本地数据');
 }
 
 bootstrap();
