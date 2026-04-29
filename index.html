@@ -821,6 +821,10 @@ async function authSubmit(){
     // 保存会话（不再需要派生密钥，因为去掉了客户端加密）
     supaAuth.saveSession(res);
     localStorage.setItem('tayu_logged_before', '1');
+    // 同步云端昵称到本地
+    if(CURRENT_USER && CURRENT_USER.user_metadata && CURRENT_USER.user_metadata.username){
+      localStorage.setItem('tayu_username', CURRENT_USER.user_metadata.username);
+    }
     // 加载云端数据
     await loadFromCloud();
     enterApp();
@@ -1324,11 +1328,36 @@ async function saveRecord(){
    首页渲染
    ========================================================= */
 function getUsername(){
+  // 云端 user_metadata 优先 → 本地缓存 → 默认
+  if(CURRENT_USER && CURRENT_USER.user_metadata && CURRENT_USER.user_metadata.username){
+    return CURRENT_USER.user_metadata.username;
+  }
   return localStorage.getItem('tayu_username') || '集帅';
 }
-function setUsername(name){
+async function setUsername(name){
   if(!name || !name.trim()) return;
-  localStorage.setItem('tayu_username', name.trim());
+  const trimmed = name.trim();
+  localStorage.setItem('tayu_username', trimmed);
+  // 同步到云端 user_metadata
+  if(CURRENT_USER && ACCESS_TOKEN){
+    try {
+      const res = await supaApi('/auth/v1/user', {
+        method:'PUT',
+        body: JSON.stringify({data:{username: trimmed}})
+      });
+      // 更新本地 session 缓存
+      if(res){
+        CURRENT_USER = res;
+        const stored = JSON.parse(localStorage.getItem('tayu_session') || '{}');
+        stored.user = res;
+        localStorage.setItem('tayu_session', JSON.stringify(stored));
+      }
+      console.log('[tayu] 昵称已同步到云端');
+    } catch(e){
+      console.warn('[tayu] 云端昵称同步失败：', e);
+      toast('⚠️ 云端同步失败，仅保存本地');
+    }
+  }
   setGreeting();
   if(document.getElementById('page-profile').classList.contains('active')) renderProfilePage();
 }
@@ -1350,10 +1379,13 @@ function setGreeting(){
     td.innerHTML = `${months[d.getMonth()]} ${d.getDate()}<br><span style="opacity:.6;">Week ${weekKey().split('-W')[1]}</span>`;
   }
 }
-function promptUsername(){
+async function promptUsername(){
   const cur = getUsername();
   const v = prompt('设置你的昵称（首页问候和个人中心会用到）', cur);
-  if(v !== null) setUsername(v);
+  if(v !== null) {
+    await setUsername(v);
+    toast('✅ 昵称已更新');
+  }
 }
 function weekRecords(){
   const now = new Date();
