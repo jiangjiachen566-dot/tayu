@@ -276,25 +276,31 @@
   /* 勋章 */
   .medal-row{margin:0 16px;display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none;}
   .medal-row::-webkit-scrollbar{display:none;}
-  .medal-card{flex:0 0 88px;background:#fff;border-radius:16px;padding:12px 6px;text-align:center;box-shadow:var(--shadow);cursor:pointer;transition:.2s;}
+  .medal-card{flex:0 0 96px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 6px;text-align:center;cursor:pointer;transition:.2s;position:relative;}
   .medal-card:active{transform:scale(.94);}
-  .medal-card .em{font-size:32px;display:block;line-height:1;filter:grayscale(1);opacity:.35;}
+  .medal-card .em{font-size:32px;display:block;line-height:1;filter:grayscale(1);opacity:.3;}
   .medal-card.unlocked .em{filter:none;opacity:1;}
-  .medal-card .nm{font-size:11px;margin-top:6px;color:var(--text-2);font-weight:600;line-height:1.3;}
-  .medal-card .lk{font-size:10px;color:var(--text-3);margin-top:2px;}
-  .medal-card.unlocked{background:linear-gradient(135deg,#fff8e8,#fff);border:1px solid #fde68a;}
+  .medal-card .nm{font-size:11px;margin-top:8px;color:var(--ink-2);font-weight:600;line-height:1.3;}
+  .medal-card .tier{font-size:9px;color:var(--ink-3);margin-top:4px;font-weight:500;letter-spacing:.5px;}
+  .medal-card .tier-badge{position:absolute;top:6px;right:6px;font-size:14px;line-height:1;}
+  .medal-card.tier-bronze{background:linear-gradient(135deg,#fdf3e7,#fff);border-color:#f0d9b8;}
+  .medal-card.tier-silver{background:linear-gradient(135deg,#f3f4f6,#fff);border-color:#d1d5db;}
+  .medal-card.tier-gold{background:linear-gradient(135deg,#fef3e2,#fff);border-color:#f0c987;}
+  .medal-card.tier-diamond{background:linear-gradient(135deg,#eaf0fa,#fff);border-color:#b4c5e2;}
+  .medal-progress{height:3px;background:var(--bg);border-radius:2px;margin-top:6px;overflow:hidden;}
+  .medal-progress-bar{height:100%;background:var(--ink);border-radius:2px;transition:.3s;}
 
   /* 勋章详情 modal */
   .medal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0;}
-  .medal-cell{background:#f7f8fc;border-radius:14px;padding:14px 6px;text-align:center;border:2px solid transparent;}
-  .medal-cell.unlocked{background:linear-gradient(135deg,#fff8e8,#fff3c4);border-color:#fde68a;}
-  .medal-cell .em{font-size:36px;display:block;line-height:1;filter:grayscale(1);opacity:.3;}
+  .medal-cell{background:var(--bg);border-radius:12px;padding:14px 6px;text-align:center;border:1px solid var(--line);position:relative;cursor:pointer;}
+  .medal-cell .em{font-size:32px;display:block;line-height:1;filter:grayscale(1);opacity:.3;}
   .medal-cell.unlocked .em{filter:none;opacity:1;}
-  .medal-cell .nm{font-size:12px;margin-top:6px;font-weight:600;color:var(--text);}
-  .medal-cell .desc{font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.3;}
-  .medal-cell .diff{display:inline-block;font-size:9px;padding:1px 5px;border-radius:6px;margin-top:4px;background:#e8efff;color:#3b6cff;}
-  .medal-cell.diff-hard .diff{background:#fee2e2;color:#ef4444;}
-  .medal-cell.diff-mid .diff{background:#fef3c7;color:#f59e0b;}
+  .medal-cell .nm{font-size:12px;margin-top:8px;font-weight:600;color:var(--ink);}
+  .medal-cell .desc{font-size:10px;color:var(--ink-3);margin-top:4px;line-height:1.3;}
+  .medal-cell.tier-bronze{background:linear-gradient(135deg,#fdf3e7,#fff);border-color:#f0d9b8;}
+  .medal-cell.tier-silver{background:linear-gradient(135deg,#f3f4f6,#fff);border-color:#d1d5db;}
+  .medal-cell.tier-gold{background:linear-gradient(135deg,#fef3e2,#fff);border-color:#f0c987;}
+  .medal-cell.tier-diamond{background:linear-gradient(135deg,#eaf0fa,#fff);border-color:#b4c5e2;}
 
   .insight{margin:0 16px 16px;background:linear-gradient(135deg,#e8efff,#fff);border-radius:20px;padding:16px;border:1px solid #e6edff;}
   .insight h4{margin:0 0 8px;font-size:14px;color:var(--primary);}
@@ -1361,7 +1367,9 @@ function refreshPeeRisk(){
 
 async function saveRecord(){
   const t = getType(curType);
-  const beforeUnlocked = getMedalStatus().filter(m=>m.unlocked).map(m=>m.id);
+  // 记录每个勋章升级前的等级
+  const beforeTiers = {};
+  getMedalStatus().forEach(m=>{ beforeTiers[m.id] = m.tierIdx; });
   await addRecord({type:curType, date:formState.date, time:formState.time, data:{...formState.data}, note:formState.note||''});
   closeSheet();
   toast(`✅ 已保存「${t.name}」`);
@@ -1372,20 +1380,23 @@ async function saveRecord(){
   }
   if(document.getElementById('page-achieve').classList.contains('active')) renderAchievePage();
   if(document.getElementById('page-profile').classList.contains('active')) renderProfilePage();
-  // 检测新解锁勋章
-  const afterUnlocked = getMedalStatus().filter(m=>m.unlocked);
-  const newOnes = afterUnlocked.filter(m=>!beforeUnlocked.includes(m.id));
-  if(newOnes.length){
+  // 检测新解锁/升级的勋章（tier 提升）
+  const after = getMedalStatus();
+  const upgrades = after.filter(m => m.tierIdx > (beforeTiers[m.id] !== undefined ? beforeTiers[m.id] : -1));
+  if(upgrades.length){
     setTimeout(()=>{
-      const m = newOnes[0];
+      const m = upgrades[0];
+      const tc = TIER_CONF[m.tier];
+      const isNew = beforeTiers[m.id] === -1;
       showModal(`
         <div style="text-align:center;padding:20px 0 10px;">
-          <div style="font-size:30px;color:#f59e0b;font-weight:700;">🎉 新勋章解锁！</div>
-          <div style="font-size:90px;line-height:1;margin:20px 0;animation:fade .6s;">${m.emoji}</div>
-          <h3 style="margin:0;">${m.name}</h3>
-          <p style="color:var(--text-2);margin-top:8px;">${m.desc}</p>
+          <div style="font-size:24px;color:${tc.color};font-weight:700;letter-spacing:1px;">${isNew?'🎉 新勋章解锁':'⬆️ 勋章升级'}</div>
+          <div style="font-size:80px;line-height:1;margin:20px 0;">${m.emoji}</div>
+          <h3 style="margin:0;font-size:20px;">${m.name}</h3>
+          <div style="display:inline-block;margin-top:8px;padding:4px 12px;border-radius:8px;background:${tc.color}22;color:${tc.color};font-weight:600;font-size:12px;">${tc.label} ${tc.name}级</div>
+          <p style="color:var(--ink-2);margin-top:14px;font-size:13px;">${m.desc}</p>
         </div>
-        <div class="close-line"><button onclick="closeModal()" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#fff;font-weight:600;padding:10px 24px;">太棒了 ✨</button></div>
+        <div class="close-line"><button onclick="closeModal()" style="background:${tc.color};color:#fff;font-weight:600;padding:10px 24px;">太棒了 ✨</button></div>
       `);
     }, 600);
   }
@@ -1824,62 +1835,227 @@ function filterRecent(type){
 }
 
 /* =========================================================
-   勋章 / 成就系统
+   勋章系统 v3 — 升级 + 互斥分支
+   设计：
+   - 通用勋章 (10 枚)：所有人都能拿
+   - 分支勋章 (8 组互斥)：根据生活方式 2 选 1，每人能拿到完整 1 套
+   - 特殊勋章 (5 枚)：综合性挑战
+   - 每枚都有 4 级：青铜 → 白银 → 黄金 → 钻石
    ========================================================= */
+
+const TIER_CONF = {
+  bronze:  {name:'青铜', color:'#cd7f32', bgcolor:'#fdf3e7', label:'🥉'},
+  silver:  {name:'白银', color:'#9ca3af', bgcolor:'#f3f4f6', label:'🥈'},
+  gold:    {name:'黄金', color:'#d4a574', bgcolor:'#fef3e2', label:'🥇'},
+  diamond: {name:'钻石', color:'#7c8db5', bgcolor:'#eaf0fa', label:'💎'}
+};
+const TIERS = ['bronze','silver','gold','diamond'];
+
+// 勋章定义：每个 tiers 数组 = [青铜阈值, 白银阈值, 黄金阈值, 钻石阈值]
 const MEDALS = [
-  // ====== 简单 (10) ======
-  {id:'first_record', emoji:'🎯', name:'初次记录',   desc:'完成第一条健康记录', diff:'easy', check:(r,h)=>r.length>=1},
-  {id:'streak_3',     emoji:'🔥', name:'三日坚持',   desc:'连续 3 天有记录',     diff:'easy', check:(r,h)=>h.streak>=3},
-  {id:'sport_first',  emoji:'🏃', name:'迈开腿',     desc:'记录第一次运动',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='sport')},
-  {id:'sleep_first',  emoji:'😴', name:'好梦初醒',   desc:'记录第一次睡眠',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='sleep')},
-  {id:'pee_first',    emoji:'💧', name:'健康观察员', desc:'完成第一次排尿监测', diff:'easy', check:(r,h)=>r.some(x=>x.type==='pee')},
-  {id:'mood_first',   emoji:'🧠', name:'心情记录员', desc:'记录第一次心情',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='mood')},
-  {id:'sex_first',    emoji:'❤️', name:'幸福在握',   desc:'记录第一次亲密生活', diff:'easy', check:(r,h)=>r.some(x=>x.type==='sex')},
-  {id:'jerk_first',   emoji:'✋', name:'坦诚记录',   desc:'记录第一次解压',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='jerk')},
-  {id:'smoke_first',  emoji:'🚬', name:'烟事坦白',   desc:'第一次记录抽烟',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='smoke')},
-  {id:'drink_first',  emoji:'🍺', name:'酒事坦白',   desc:'第一次记录饮酒',     diff:'easy', check:(r,h)=>r.some(x=>x.type==='drink')},
+  // ============ 通用勋章 (10) ============
+  // 1. 打卡坚持
+  {id:'streak', emoji:'🔥', name:'打卡坚持', cat:'general',
+   tiers:[3,7,30,100], unit:'天连续打卡',
+   getProgress:(r,h)=>h.streak,
+   desc:'连续记录的天数'},
+  // 2. 累计记录
+  {id:'records', emoji:'📝', name:'记录达人', cat:'general',
+   tiers:[10,50,200,1000], unit:'条记录',
+   getProgress:(r,h)=>r.length,
+   desc:'累计的健康记录条数'},
+  // 3. 全能体验
+  {id:'all_types', emoji:'🎨', name:'全能体验', cat:'general',
+   tiers:[3,5,7,9], unit:'种功能',
+   getProgress:(r,h)=>new Set(r.map(x=>x.type)).size,
+   desc:'体验过多少种打卡类型'},
+  // 4. 运动累计
+  {id:'sport_total', emoji:'🏃', name:'运动健将', cat:'general',
+   tiers:[5,20,60,200], unit:'次运动',
+   getProgress:(r,h)=>r.filter(x=>x.type==='sport').length,
+   desc:'累计运动次数'},
+  // 5. 睡眠记录
+  {id:'sleep_total', emoji:'😴', name:'睡眠观察家', cat:'general',
+   tiers:[5,20,60,200], unit:'次睡眠记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='sleep').length,
+   desc:'累计记录睡眠数据'},
+  // 6. 高质量睡眠
+  {id:'good_sleep_streak', emoji:'🌙', name:'优质梦乡', cat:'general',
+   tiers:[3,7,21,60], unit:'天连续 ≥7h 睡眠',
+   getProgress:(r,h)=>h.goodSleepStreak,
+   desc:'连续多少天睡满 7 小时'},
+  // 7. 阳光心态
+  {id:'happy_mood', emoji:'😄', name:'阳光心态', cat:'general',
+   tiers:[3,10,30,100], unit:'次开心记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='mood' && (x.data.mood||'').includes('开心')).length,
+   desc:'记录过的开心心情次数'},
+  // 8. 排尿正常
+  {id:'pee_normal', emoji:'💧', name:'泌尿健康', cat:'general',
+   tiers:[3,10,30,100], unit:'次正常评估',
+   getProgress:(r,h)=>r.filter(x=>x.type==='pee' && peeRisk(x.data).level==='正常').length,
+   desc:'排尿评估为正常的次数'},
+  // 9. 自我观察（单日多类型）
+  {id:'rich_day', emoji:'🎪', name:'丰富一天', cat:'general',
+   tiers:[3,5,7,9], unit:'种当日同时记录',
+   getProgress:(r,h)=>h.maxDayTypes,
+   desc:'单日最多记录的类型数'},
+  // 10. 自律者（无起夜）
+  {id:'no_night_streak', emoji:'🌟', name:'安睡之心', cat:'general',
+   tiers:[3,7,21,60], unit:'天连续无起夜',
+   getProgress:(r,h)=>h.noNightStreak,
+   desc:'连续无起夜的天数'},
 
-  // ====== 中等 (16) ======
-  {id:'streak_7',     emoji:'⭐', name:'连续一周',   desc:'连续 7 天打卡',       diff:'mid',  check:(r,h)=>h.streak>=7},
-  {id:'sport_5',      emoji:'💪', name:'运动新星',   desc:'累计运动 5 次',       diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='sport').length>=5},
-  {id:'sleep_8h',     emoji:'🌙', name:'高质量睡眠', desc:'单次睡眠 ≥ 8 小时',   diff:'mid',  check:(r,h)=>r.some(x=>x.type==='sleep' && (x.data.hours||calcSleepHours(x.data.bedtime,x.data.waketime))>=8)},
-  {id:'no_jerk_3',    emoji:'🧘', name:'三日禅定',   desc:'连续 3 天无解压',     diff:'mid',  check:(r,h)=>h.noJerkStreak>=3},
-  {id:'pee_normal_5', emoji:'✅', name:'泌尿健康',   desc:'5 次排尿评估正常',    diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='pee'&&peeRisk(x.data).level==='正常').length>=5},
-  {id:'mood_happy_5', emoji:'😄', name:'阳光心态',   desc:'5 次开心情绪记录',    diff:'mid',  check:(r,h)=>r.filter(x=>x.type==='mood'&&(x.data.mood||'').includes('开心')).length>=5},
-  {id:'all_types',    emoji:'🎨', name:'全能达人',   desc:'9 种功能各用至少 1 次', diff:'mid', check:(r,h)=>new Set(r.map(x=>x.type)).size>=9},
-  {id:'no_smoke_7',   emoji:'🌱', name:'戒烟周', desc:'连续 7 天无抽烟记录', diff:'mid', check:(r,h)=>h.noSmokeStreak>=7},
-  {id:'no_drink_7',   emoji:'🍵', name:'戒酒周', desc:'连续 7 天无饮酒记录', diff:'mid', check:(r,h)=>h.noDrinkStreak>=7},
-  {id:'smoke_count_50',   emoji:'💨', name:'半包大将', desc:'累计抽烟 50 支', diff:'mid', check:(r,h)=>h.smokeTotal>=50},
-  {id:'drink_count_5',    emoji:'🥂', name:'微醺常客', desc:'累计饮酒 5 次', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='drink').length>=5},
-  {id:'sex_5',        emoji:'💕', name:'恩爱小情侣', desc:'累计亲密 5 次', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='sex').length>=5},
-  {id:'jerk_marathon',emoji:'🏃‍♂️', name:'解压马拉松', desc:'单周解压 ≥ 7 次（请适度）', diff:'mid', check:(r,h)=>h.maxWeekJerk>=7},
-  {id:'late_bed_3',   emoji:'🦉', name:'熬夜三连', desc:'3 次入睡晚于 1 点', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.bedtime && (x.data.bedtime>='01:00' && x.data.bedtime<='04:00')).length>=3},
-  {id:'morning_5',    emoji:'🐦', name:'早起鸟儿', desc:'5 次起床早于 7 点', diff:'mid', check:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.waketime && x.data.waketime<='07:00').length>=5},
-  {id:'records_30',   emoji:'📝', name:'30 条达成', desc:'累计 30 条记录', diff:'mid', check:(r,h)=>r.length>=30},
+  // ============ 分支勋章 (8 组，每人按生活方式拿到一套) ============
 
-  // ====== 困难 (16) ======
-  {id:'streak_14',    emoji:'🔱', name:'两周不断', desc:'连续 14 天打卡', diff:'hard', check:(r,h)=>h.streak>=14},
-  {id:'streak_30',    emoji:'👑', name:'月度王者', desc:'连续 30 天打卡', diff:'hard', check:(r,h)=>h.streak>=30},
-  {id:'streak_100',   emoji:'💎', name:'百日不辍', desc:'连续 100 天打卡', diff:'hard', check:(r,h)=>h.streak>=100},
-  {id:'no_jerk_7',    emoji:'🛡️', name:'七日修行', desc:'连续 7 天不释放', diff:'hard', check:(r,h)=>h.noJerkStreak>=7},
-  {id:'no_jerk_30',   emoji:'🏆', name:'月度禁欲者', desc:'连续 30 天不释放', diff:'hard', check:(r,h)=>h.noJerkStreak>=30},
-  {id:'sport_30',     emoji:'🥇', name:'健身狂魔', desc:'累计运动 30 次', diff:'hard', check:(r,h)=>r.filter(x=>x.type==='sport').length>=30},
-  {id:'sport_100',    emoji:'🦾', name:'铁人精神', desc:'累计运动 100 次', diff:'hard', check:(r,h)=>r.filter(x=>x.type==='sport').length>=100},
-  {id:'sleep_perfect',emoji:'💎', name:'睡眠大师', desc:'连续 7 天睡眠 ≥ 7h', diff:'hard', check:(r,h)=>h.goodSleepStreak>=7},
-  {id:'no_night_7',   emoji:'🌟', name:'安睡七夜', desc:'连续 7 天无起夜', diff:'hard', check:(r,h)=>h.noNightStreak>=7},
-  {id:'sex_regular',  emoji:'💝', name:'规律生活', desc:'单月亲密 ≥ 4 次', diff:'hard', check:(r,h)=>h.sexThisMonth>=4},
-  {id:'records_100',  emoji:'💯', name:'百次记录', desc:'累计 100 条', diff:'hard', check:(r,h)=>r.length>=100},
-  {id:'records_365',  emoji:'🌈', name:'年度健康官', desc:'累计 365 条', diff:'hard', check:(r,h)=>r.length>=365},
-  {id:'no_smoke_30',  emoji:'🌳', name:'戒烟达人', desc:'连续 30 天无抽烟', diff:'hard', check:(r,h)=>h.noSmokeStreak>=30},
-  {id:'no_drink_30',  emoji:'🚱', name:'戒酒达人', desc:'连续 30 天无饮酒', diff:'hard', check:(r,h)=>h.noDrinkStreak>=30},
-  {id:'drunk_3',      emoji:'🥴', name:'酒桌豪侠', desc:'3 次喝到大醉以上', diff:'hard', check:(r,h)=>r.filter(x=>x.type==='drink' && (x.data.drunk||0)>=4).length>=3},
-  {id:'heavy_smoker', emoji:'🚭', name:'戒烟救星', desc:'抽烟由多减少 50%（需 ≥ 14 天数据）', diff:'hard', check:(r,h)=>h.smokeReduced},
+  // === 分支1：解压频率 ===
+  // A. 频繁解压
+  {id:'jerk_total', emoji:'✋', name:'解压达人', cat:'branch', branch:'jerk_freq',
+   tiers:[5,20,60,200], unit:'次解压',
+   getProgress:(r,h)=>r.filter(x=>x.type==='jerk').length,
+   desc:'累计解压次数（适度即可）'},
+  // B. 禁欲修行
+  {id:'no_jerk_streak', emoji:'🧘', name:'禅心居士', cat:'branch', branch:'jerk_freq',
+   tiers:[3,7,30,90], unit:'天连续不解压',
+   getProgress:(r,h)=>h.noJerkStreak,
+   desc:'连续不释放的天数'},
 
-  // ====== 隐藏彩蛋 (3) ======
-  {id:'all_in_day',   emoji:'🎪', name:'极限挑战', desc:'单日 6 种类型记录', diff:'hard', check:(r,h)=>h.maxDayTypes>=6},
-  {id:'midnight_owl', emoji:'🌃', name:'子夜守门员', desc:'凌晨 1-4 点记录 5 次', diff:'hard', check:(r,h)=>r.filter(x=>x.time && x.time>='01:00' && x.time<='04:00').length>=5},
-  {id:'completionist',emoji:'🌠', name:'勋章收藏家', desc:'解锁 30 枚以上勋章', diff:'hard', check:(r,h)=>h.unlockedCount>=30}
+  // === 分支2：亲密关系 ===
+  // A. 恩爱情侣
+  {id:'sex_total', emoji:'💕', name:'恩爱小情侣', cat:'branch', branch:'relationship',
+   tiers:[3,15,50,200], unit:'次亲密生活',
+   getProgress:(r,h)=>r.filter(x=>x.type==='sex').length,
+   desc:'累计亲密生活次数'},
+  // B. 单身贵族
+  {id:'single_streak', emoji:'🦋', name:'单身贵族', cat:'branch', branch:'relationship',
+   tiers:[14,30,90,180], unit:'天连续无亲密',
+   getProgress:(r,h)=>h.noSexStreak,
+   desc:'连续无亲密生活的天数（单身/异地都算）'},
+
+  // === 分支3：抽烟 ===
+  // A. 烟枪
+  {id:'smoke_total', emoji:'🚬', name:'吞云吐雾', cat:'branch', branch:'smoking',
+   tiers:[20,100,500,2000], unit:'支累计抽烟',
+   getProgress:(r,h)=>h.smokeTotal,
+   desc:'累计抽烟支数（请关注健康）'},
+  // B. 戒烟者
+  {id:'no_smoke_streak', emoji:'🌿', name:'戒烟标兵', cat:'branch', branch:'smoking',
+   tiers:[7,30,90,365], unit:'天连续无烟',
+   getProgress:(r,h)=>h.noSmokeStreak,
+   desc:'连续不抽烟的天数'},
+
+  // === 分支4：饮酒 ===
+  // A. 酒桌豪侠
+  {id:'drink_total', emoji:'🍻', name:'酒桌灵魂', cat:'branch', branch:'drinking',
+   tiers:[3,15,50,200], unit:'次饮酒',
+   getProgress:(r,h)=>r.filter(x=>x.type==='drink').length,
+   desc:'累计饮酒次数'},
+  // B. 戒酒者
+  {id:'no_drink_streak', emoji:'🍵', name:'清醒人生', cat:'branch', branch:'drinking',
+   tiers:[7,30,90,365], unit:'天连续无酒',
+   getProgress:(r,h)=>h.noDrinkStreak,
+   desc:'连续不喝酒的天数'},
+
+  // === 分支5：作息倾向 ===
+  // A. 早起鸟
+  {id:'morning_bird', emoji:'🐦', name:'早起鸟儿', cat:'branch', branch:'sleep_type',
+   tiers:[3,10,30,100], unit:'次早起 (≤7点)',
+   getProgress:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.waketime && x.data.waketime<='07:00').length,
+   desc:'起床早于 7 点的次数'},
+  // B. 夜猫子
+  {id:'night_owl', emoji:'🦉', name:'熬夜冠军', cat:'branch', branch:'sleep_type',
+   tiers:[3,10,30,100], unit:'次熬夜 (≥1点睡)',
+   getProgress:(r,h)=>r.filter(x=>x.type==='sleep' && x.data.bedtime && x.data.bedtime>='01:00' && x.data.bedtime<='05:00').length,
+   desc:'凌晨入睡的次数'},
+
+  // === 分支6：运动强度 ===
+  // A. 高频运动
+  {id:'sport_freq', emoji:'⚡️', name:'运动狂人', cat:'branch', branch:'sport_style',
+   tiers:[3,7,14,30], unit:'天连续运动',
+   getProgress:(r,h)=>h.sportStreak,
+   desc:'连续每日都运动的天数'},
+  // B. 佛系运动
+  {id:'sport_chill', emoji:'🌿', name:'松弛大师', cat:'branch', branch:'sport_style',
+   tiers:[7,30,90,180], unit:'天连续不运动',
+   getProgress:(r,h)=>h.noSportStreak,
+   desc:'连续不运动的天数（享受躺平也是一种生活）'},
+
+  // === 分支7：心理倾向 ===
+  // A. 情绪稳定
+  {id:'calm_mood', emoji:'🧘‍♂️', name:'情绪稳定', cat:'branch', branch:'mind_type',
+   tiers:[3,10,30,100], unit:'次平静记录',
+   getProgress:(r,h)=>r.filter(x=>x.type==='mood' && (x.data.mood||'').includes('平静')).length,
+   desc:'记录平静心情的次数'},
+  // B. 情绪丰富
+  {id:'rich_mood', emoji:'🎭', name:'情绪丰富', cat:'branch', branch:'mind_type',
+   tiers:[3,10,30,100], unit:'种情绪类型',
+   getProgress:(r,h)=>{
+     const moods = new Set(r.filter(x=>x.type==='mood').map(x=>x.data.mood||''));
+     return moods.size;
+   },
+   desc:'体验过多少种心情类型'},
+
+  // === 分支8：记录时段 ===
+  // A. 白天派
+  {id:'day_logger', emoji:'☀️', name:'白天派', cat:'branch', branch:'log_time',
+   tiers:[5,20,80,300], unit:'条 9-18 点记录',
+   getProgress:(r,h)=>r.filter(x=>x.time && x.time>='09:00' && x.time<='18:00').length,
+   desc:'白天记录的条数'},
+  // B. 夜晚派
+  {id:'night_logger', emoji:'🌃', name:'夜行者', cat:'branch', branch:'log_time',
+   tiers:[5,20,80,300], unit:'条 22-3 点记录',
+   getProgress:(r,h)=>r.filter(x=>x.time && (x.time>='22:00' || x.time<='03:00')).length,
+   desc:'深夜记录的条数'},
+
+  // ============ 特殊勋章 (5) - 综合挑战 ============
+  {id:'health_aware', emoji:'🩺', name:'健康觉醒', cat:'special',
+   tiers:[20,60,150,500], unit:'综合分',
+   getProgress:(r,h)=>{
+     // 综合分 = 总记录 + 类型多样性*5 + 连续天数*2
+     return r.length + new Set(r.map(x=>x.type)).size*5 + h.streak*2;
+   },
+   desc:'记录数 + 类型多样性 + 连续天数 综合分'},
+  {id:'self_master', emoji:'🎯', name:'自律之王', cat:'special',
+   tiers:[15,45,100,250], unit:'分自律值',
+   getProgress:(r,h)=>{
+     // 自律 = 早起次数 + 不熬夜+不解压streak + 运动streak
+     const early = r.filter(x=>x.type==='sleep' && x.data.waketime && x.data.waketime<='07:00').length;
+     return early + h.goodSleepStreak + h.sportStreak;
+   },
+   desc:'早起 + 良好睡眠 + 运动连续的综合自律分'},
+  {id:'social_butterfly', emoji:'🦋', name:'社交达人', cat:'special',
+   tiers:[5,20,60,150], unit:'次社交场景',
+   getProgress:(r,h)=>{
+     return r.filter(x=>x.type==='drink' && (x.data.scene||'').match(/聚会|应酬|约会|聚餐|庆祝/)).length
+          + r.filter(x=>x.type==='smoke' && (x.data.scene||'').match(/社交|应酬/)).length;
+   },
+   desc:'社交场景记录数（聚会、应酬等）'},
+  {id:'data_obsessed', emoji:'📊', name:'数据控', cat:'special',
+   tiers:[30,100,365,1000], unit:'天有记录',
+   getProgress:(r,h)=>new Set(r.map(x=>x.date)).size,
+   desc:'有记录的不同日期数'},
+  {id:'tayu_devotee', emoji:'💎', name:'他柚信徒', cat:'special',
+   tiers:[100,300,1000,3000], unit:'分忠诚度',
+   getProgress:(r,h)=>r.length + h.streak*3,
+   desc:'记录数 + 连续天数加权'}
 ];
+
+/* 计算单个勋章状态：返回 {tier, tierIdx, unlocked, progress, target, nextTarget, percent} */
+function getMedalProgress(medal, r, h){
+  const progress = medal.getProgress(r, h);
+  let tierIdx = -1; // -1 表示未解锁，0=青铜...3=钻石
+  for(let i=medal.tiers.length-1; i>=0; i--){
+    if(progress >= medal.tiers[i]){ tierIdx = i; break; }
+  }
+  const tier = tierIdx >= 0 ? TIERS[tierIdx] : null;
+  const nextTarget = tierIdx < TIERS.length-1 ? medal.tiers[tierIdx+1] : null;
+  const currentTarget = tierIdx >= 0 ? medal.tiers[tierIdx] : medal.tiers[0];
+  const percent = nextTarget ? Math.min(100, Math.round((progress-currentTarget)/(nextTarget-currentTarget)*100)) : 100;
+  return {
+    tier, tierIdx, unlocked: tierIdx >= 0,
+    progress, currentTarget, nextTarget, percent,
+    isMaxed: tierIdx === TIERS.length-1
+  };
+}
 
 function calcMedalHints(){
   const today = new Date();
@@ -1966,16 +2142,45 @@ function calcMedalHints(){
   });
   const maxDayTypes = Math.max(0, ...Object.values(dayTypeMap).map(s=>s.size));
 
-  // 已解锁数（用于"勋章收藏家"自我引用，先算一次基础的）
-  const baseHints = {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth, noSmokeStreak, noDrinkStreak, smokeTotal, smokeReduced, maxWeekJerk, maxDayTypes, unlockedCount:0};
-  const unlockedCount = MEDALS.filter(m => m.id !== 'completionist' && m.check(records, baseHints)).length;
+  // 连续无亲密天数
+  let noSexStreak=0; let d2=new Date(); d2.setDate(d2.getDate()-1);
+  for(let i=0;i<400;i++){
+    const ds=fmtDate(d2);
+    const hasAny = records.some(r=>r.date===ds);
+    const hasSex = records.some(r=>r.date===ds && r.type==='sex');
+    if(!hasAny) break;
+    if(hasSex) break;
+    noSexStreak++; d2.setDate(d2.getDate()-1);
+  }
+  // 连续运动天数
+  let sportStreak=0; d2=new Date();
+  for(let i=0;i<400;i++){
+    const ds=fmtDate(d2);
+    if(records.some(r=>r.date===ds && r.type==='sport')) sportStreak++;
+    else break;
+    d2.setDate(d2.getDate()-1);
+  }
+  // 连续无运动天数
+  let noSportStreak=0; d2=new Date(); d2.setDate(d2.getDate()-1);
+  for(let i=0;i<400;i++){
+    const ds=fmtDate(d2);
+    const hasAny = records.some(r=>r.date===ds);
+    const hasSport = records.some(r=>r.date===ds && r.type==='sport');
+    if(!hasAny) break;
+    if(hasSport) break;
+    noSportStreak++; d2.setDate(d2.getDate()-1);
+  }
 
-  return {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth, noSmokeStreak, noDrinkStreak, smokeTotal, smokeReduced, maxWeekJerk, maxDayTypes, unlockedCount};
+  // 已解锁勋章数（v3：getMedalProgress 计算）
+  const baseHints = {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth, noSmokeStreak, noDrinkStreak, smokeTotal, smokeReduced, maxWeekJerk, maxDayTypes, noSexStreak, sportStreak, noSportStreak, unlockedCount:0};
+  const unlockedCount = MEDALS.filter(m => getMedalProgress(m, records, baseHints).unlocked).length;
+
+  return {streak, noJerkStreak, goodSleepStreak, noNightStreak, sexThisMonth, noSmokeStreak, noDrinkStreak, smokeTotal, smokeReduced, maxWeekJerk, maxDayTypes, noSexStreak, sportStreak, noSportStreak, unlockedCount};
 }
 
 function getMedalStatus(){
   const hints = calcMedalHints();
-  return MEDALS.map(m=>({...m, unlocked:m.check(records,hints)}));
+  return MEDALS.map(m=>({...m, ...getMedalProgress(m, records, hints)}));
 }
 
 /* =========================================================
@@ -2394,13 +2599,16 @@ function renderMedals(){
   const rowEl = document.getElementById('achieveMedalRow');
   if(rowEl){
     if(unlocked.length===0){
-      rowEl.innerHTML = `<div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:13px;width:100%;">还没有勋章哦，开始记录就能解锁！<br><span style="color:var(--primary);cursor:pointer;font-size:12px;" onclick="openMedals()">查看全部 ${list.length} 枚 ›</span></div>`;
+      rowEl.innerHTML = `<div style="padding:24px 16px;text-align:center;color:var(--ink-3);font-size:13px;width:100%;">还没有勋章哦，开始记录就能解锁！<br><span style="color:var(--ink);cursor:pointer;font-size:12px;font-weight:600;" onclick="openMedals()">查看全部 ${list.length} 枚 ›</span></div>`;
     } else {
-      rowEl.innerHTML = unlocked.slice(0,12).map(m=>`
-        <div class="medal-card unlocked" onclick="viewMedal('${m.id}')">
+      // 优先显示等级最高的
+      const sorted = [...unlocked].sort((a,b)=>b.tierIdx-a.tierIdx);
+      rowEl.innerHTML = sorted.slice(0,12).map(m=>`
+        <div class="medal-card unlocked tier-${m.tier}" onclick="viewMedal('${m.id}')">
+          <span class="tier-badge">${TIER_CONF[m.tier].label}</span>
           <span class="em">${m.emoji}</span>
           <div class="nm">${m.name}</div>
-          <div class="lk">✓ 已获得</div>
+          <div class="tier" style="color:${TIER_CONF[m.tier].color};">${TIER_CONF[m.tier].name}</div>
         </div>
       `).join('');
     }
@@ -2410,47 +2618,96 @@ function renderMedals(){
 function viewMedal(id){
   const m = getMedalStatus().find(x=>x.id===id);
   if(!m) return;
-  const tag = m.diff==='hard'?'困难':m.diff==='mid'?'中等':'简单';
+  const catLabel = {general:'通用', branch:'分支', special:'特殊'}[m.cat] || '';
+  const catColor = {general:'#5a7a99', branch:'#c8956d', special:'#a25e6e'}[m.cat] || '#999';
+
+  // 进度条
+  let progressHtml = '';
+  if(m.unlocked && m.isMaxed){
+    progressHtml = `<div style="text-align:center;font-size:14px;color:${TIER_CONF.diamond.color};font-weight:600;">💎 钻石满级！已达成 ${m.progress} ${m.unit}</div>`;
+  } else {
+    const cur = m.progress;
+    const next = m.nextTarget;
+    progressHtml = `
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);margin-bottom:6px;">
+        <span>当前 <b style="color:var(--ink);">${cur}</b> ${m.unit}</span>
+        <span>${m.unlocked?'下一级':'解锁'}：${next} ${m.unit}</span>
+      </div>
+      <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;background:${m.unlocked?TIER_CONF[m.tier].color:'#9aa1ac'};border-radius:4px;width:${m.percent}%;"></div>
+      </div>`;
+  }
+
+  // 等级阶梯
+  const tierLadder = m.tiers.map((t,i)=>{
+    const reached = m.progress >= t;
+    const tierName = TIERS[i];
+    return `<div style="text-align:center;flex:1;">
+      <div style="font-size:18px;${reached?'':'opacity:.3;filter:grayscale(1);'}">${TIER_CONF[tierName].label}</div>
+      <div style="font-size:9px;color:var(--ink-3);margin-top:2px;">${TIER_CONF[tierName].name}</div>
+      <div style="font-size:10px;color:var(--ink-2);margin-top:2px;font-weight:${reached?'600':'400'};">${t}</div>
+    </div>`;
+  }).join('');
+
   showModal(`
     <div style="text-align:center;padding:10px 0 4px;">
-      <div style="font-size:80px;line-height:1;${m.unlocked?'':'filter:grayscale(1);opacity:.4;'}">${m.emoji}</div>
-      <h3 style="margin:14px 0 4px;">${m.name}</h3>
-      <span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:8px;background:${m.diff==='hard'?'#fee2e2':m.diff==='mid'?'#fef3c7':'#e8efff'};color:${m.diff==='hard'?'#ef4444':m.diff==='mid'?'#f59e0b':'#3b6cff'};">${tag}难度</span>
-      <p style="color:var(--text-2);margin-top:14px;">${m.desc}</p>
-      <div style="margin-top:14px;padding:12px;border-radius:14px;background:${m.unlocked?'#dcfce7':'#f4f6fb'};color:${m.unlocked?'#22c55e':'#9aa3b6'};font-weight:600;">
-        ${m.unlocked?'🎉 恭喜！已解锁':'🔒 继续努力，未解锁'}
+      <div style="font-size:72px;line-height:1;${m.unlocked?'':'filter:grayscale(1);opacity:.4;'}">${m.emoji}</div>
+      <h3 style="margin:14px 0 6px;">${m.name}</h3>
+      <div style="display:flex;justify-content:center;gap:6px;">
+        <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${catColor}22;color:${catColor};font-weight:500;">${catLabel}勋章</span>
+        ${m.unlocked?`<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${TIER_CONF[m.tier].color}22;color:${TIER_CONF[m.tier].color};font-weight:600;">${TIER_CONF[m.tier].name}级</span>`:''}
       </div>
+      <p style="color:var(--ink-2);margin-top:14px;font-size:13px;">${m.desc}</p>
     </div>
-    <div class="close-line"><button onclick="closeModal()" style="background:var(--primary);color:#fff;">知道了</button></div>
+    <div style="margin-top:16px;padding:14px;border-radius:12px;background:var(--bg);">
+      ${progressHtml}
+    </div>
+    <div style="margin-top:14px;padding:14px;border-radius:12px;background:var(--bg);">
+      <div style="font-size:11px;color:var(--ink-3);margin-bottom:10px;letter-spacing:.5px;">等级阶梯</div>
+      <div style="display:flex;justify-content:space-around;">${tierLadder}</div>
+    </div>
+    <div class="close-line"><button onclick="closeModal()" style="background:var(--ink);color:#fff;">知道了</button></div>
   `);
 }
 
 function openMedals(){
   const list = getMedalStatus();
+  // 按"是否解锁 + 等级 + 类别"排序
   const sorted = [...list].sort((a,b)=>{
     if(a.unlocked!==b.unlocked) return a.unlocked?-1:1;
-    const ord = {easy:0, mid:1, hard:2};
-    return ord[a.diff]-ord[b.diff];
+    if(b.tierIdx !== a.tierIdx) return b.tierIdx - a.tierIdx;
+    return 0;
   });
   const groups = [
-    {key:'easy',  label:'🟢 简单'},
-    {key:'mid',   label:'🟡 中等'},
-    {key:'hard',  label:'🔴 困难'}
+    {key:'general', label:'⚪ 通用勋章', desc:'所有人都能解锁的基础成就'},
+    {key:'branch',  label:'🔀 分支勋章', desc:'根据生活方式选择，互斥但都能拿满'},
+    {key:'special', label:'⭐ 特殊勋章', desc:'综合性挑战，需要持续投入'}
   ];
-  let html = `<h3>🏆 勋章收藏 (${sorted.filter(m=>m.unlocked).length}/${sorted.length})</h3>`;
+  const totalUnlocked = sorted.filter(m=>m.unlocked).length;
+  let html = `<h3 style="margin:0 0 4px;">🏆 勋章收藏</h3><p style="color:var(--ink-3);font-size:12px;margin:0 0 16px;">已解锁 ${totalUnlocked} / ${sorted.length} 枚</p>`;
   groups.forEach(g=>{
-    const ms = sorted.filter(m=>m.diff===g.key);
-    html += `<div style="margin-top:16px;font-weight:600;font-size:14px;">${g.label}</div><div class="medal-grid">`;
+    const ms = sorted.filter(m=>m.cat===g.key);
+    if(!ms.length) return;
+    const gUnlocked = ms.filter(m=>m.unlocked).length;
+    html += `<div style="margin-top:18px;display:flex;justify-content:space-between;align-items:flex-end;">
+      <div>
+        <div style="font-weight:600;font-size:14px;color:var(--ink);">${g.label}</div>
+        <div style="font-size:11px;color:var(--ink-3);margin-top:2px;">${g.desc}</div>
+      </div>
+      <div style="font-size:11px;color:var(--ink-3);">${gUnlocked}/${ms.length}</div>
+    </div>`;
+    html += `<div class="medal-grid" style="margin-top:10px;">`;
     html += ms.map(m=>`
-      <div class="medal-cell ${m.unlocked?'unlocked':''} diff-${m.diff}" onclick="closeModal();setTimeout(()=>viewMedal('${m.id}'),200);">
+      <div class="medal-cell ${m.unlocked?'unlocked tier-'+m.tier:''}" onclick="closeModal();setTimeout(()=>viewMedal('${m.id}'),200);">
+        ${m.unlocked?`<span style="position:absolute;top:4px;right:6px;font-size:13px;">${TIER_CONF[m.tier].label}</span>`:''}
         <span class="em">${m.emoji}</span>
         <div class="nm">${m.name}</div>
-        <div class="desc">${m.desc}</div>
+        <div class="desc">${m.unlocked?TIER_CONF[m.tier].name+'·'+m.progress+' '+m.unit:'未解锁 ('+m.progress+'/'+m.tiers[0]+')'}</div>
       </div>
     `).join('');
     html += `</div>`;
   });
-  html += `<div class="close-line"><button onclick="closeModal()" style="background:var(--primary);color:#fff;">关闭</button></div>`;
+  html += `<div class="close-line"><button onclick="closeModal()" style="background:var(--ink);color:#fff;">关闭</button></div>`;
   showModal(html);
 }
 
